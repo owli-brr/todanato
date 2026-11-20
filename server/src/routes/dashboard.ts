@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { prisma, table } from '../lib/prisma';
 import { ah } from '../lib/http';
 import { assocScope, can, requirePermission } from '../middleware/auth';
 import { driverFullName } from './drivers';
@@ -110,26 +110,26 @@ dashboardRouter.get(
         COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled,
         COUNT(*) AS total,
         SUM("actualFare") FILTER (WHERE status = 'COMPLETED')::float AS fares
-      FROM (SELECT "requestedAt" AS ts, status, "actualFare", "associationId" FROM "Booking") x
+      FROM (SELECT "requestedAt" AS ts, status, "actualFare", "associationId" FROM ${table('Booking')}) x
       WHERE ts >= ${since} ${filter}
       GROUP BY 1 ORDER BY 1`;
     const regs = await prisma.$queryRaw<{ b: Date; n: bigint }[]>`
       SELECT ${bucket} AS b, COUNT(*) AS n
-      FROM (SELECT "registeredAt" AS ts, "associationId" FROM "Driver" WHERE "deletedAt" IS NULL) x
+      FROM (SELECT "registeredAt" AS ts, "associationId" FROM ${table('Driver')} WHERE "deletedAt" IS NULL) x
       WHERE ts >= ${since} ${filter}
       GROUP BY 1 ORDER BY 1`;
     const finance = can(req, 'finance.read');
     const pay = finance
       ? await prisma.$queryRaw<{ b: Date; amount: number }[]>`
       SELECT ${bucket} AS b, SUM(amount)::float AS amount
-      FROM (SELECT "paidAt" AS ts, amount, "associationId", status FROM "Payment") x
+      FROM (SELECT "paidAt" AS ts, amount, "associationId", status FROM ${table('Payment')}) x
       WHERE ts >= ${since} AND status = 'POSTED' ${filter}
       GROUP BY 1 ORDER BY 1`
       : [];
     const exp = finance
       ? await prisma.$queryRaw<{ b: Date; amount: number }[]>`
       SELECT ${bucket} AS b, SUM(amount)::float AS amount
-      FROM (SELECT "spentAt" AS ts, amount, "associationId" FROM "Expense") x
+      FROM (SELECT "spentAt" AS ts, amount, "associationId" FROM ${table('Expense')}) x
       WHERE ts >= ${since} ${ids ? Prisma.sql`AND ("associationId" = ANY(${ids}::text[]) ${req.auth!.scope === 'ORGANIZATION' ? Prisma.sql`OR "associationId" IS NULL` : Prisma.empty})` : Prisma.empty}
       GROUP BY 1 ORDER BY 1`
       : [];
