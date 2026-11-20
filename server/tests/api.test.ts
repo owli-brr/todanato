@@ -344,3 +344,28 @@ test('reports: list respects permissions, JSON and CSV agree, CSV is formula-saf
   assert.match(csv.split('\r\n')[0], /Date,Category,Description/);
   await call(tr, 'DELETE', `/finance/expenses/${e.body.id}`);
 });
+
+test('document centre: queue counts, views and verify from the queue', async () => {
+  const sec = await login('secretary@todanato.ph');
+  const disp = await login('dispatcher@todanato.ph');
+  const r = await call(sec, 'GET', '/documents/queue');
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  for (const v of ['pending', 'expiring', 'expired', 'rejected']) assert.equal(typeof r.body.counts[v], 'number');
+  assert.equal(r.body.items.length, r.body.counts.pending);
+  const exp = (await call(sec, 'GET', '/documents/queue?view=expiring')).body;
+  for (const i of exp.items) {
+    const days = (new Date(i.expiresAt).getTime() - Date.now()) / 86400000;
+    assert.ok(days >= -0.01 && days <= 30.01, `${i.type} expires in ${days}`);
+  }
+  assert.ok((await call(sec, 'GET', '/documents/queue?view=expired')).body.items.every((i: any) => new Date(i.expiresAt) < new Date()));
+
+  // Verify the oldest pending driver document straight from the queue
+  const pend = r.body.items.find((i: any) => i.kind === 'driver');
+  if (pend) {
+    assert.equal((await call(sec, 'POST', `/drivers/${pend.ownerId}/documents/${pend.id}/verify`, { status: 'VERIFIED' })).status, 200);
+    const after = (await call(sec, 'GET', '/documents/queue')).body;
+    assert.equal(after.counts.pending, r.body.counts.pending - 1);
+  }
+  // Dispatcher has drivers.read? Either way the endpoint must not 500.
+  assert.ok([200, 403].includes((await call(disp, 'GET', '/documents/queue')).status));
+});

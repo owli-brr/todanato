@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Edit, MoreHorizontal, Wrench, PlayCircle, PauseCircle, Archive, UserPlus, UserMinus, Plus, Trash2 } from 'lucide-react';
@@ -90,6 +90,7 @@ function MaintenanceDialog({ vid, open, onOpenChange, onDone }: { vid: string; o
 
 export default function VehicleProfile() {
   const { id } = useParams();
+  const tabParam = useSearchParams()[0].get('tab') ?? undefined;
   const { can } = useAuth();
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -148,7 +149,7 @@ export default function VehicleProfile() {
         }
       />
 
-      <Tabs defaultValue="details">
+      <Tabs defaultValue={tabParam ?? "details"}>
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="driver">Driver</TabsTrigger>

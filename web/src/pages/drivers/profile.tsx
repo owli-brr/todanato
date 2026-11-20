@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Camera, CheckCircle2, Edit, MoreHorizontal, PauseCircle, PlayCircle, Ban, XCircle, Archive, Bike, Phone, Mail, MapPin, IdCard } from 'lucide-react';
@@ -38,6 +38,7 @@ type Action = { kind: 'approve' | 'reject' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export default function DriverProfile() {
   const { id } = useParams();
+  const tabParam = useSearchParams()[0].get('tab') ?? undefined;
   const { can } = useAuth();
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -138,7 +139,7 @@ export default function DriverProfile() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="personal">
+      <Tabs defaultValue={tabParam ?? "personal"}>
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="documents" count={d.documents.length}>Documents</TabsTrigger>

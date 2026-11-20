@@ -74,6 +74,10 @@ Every action is in the audit log. Drivers see their balance, unpaid charges and 
 
 **Reports** offers six reports: collections, income and expenses by month, unpaid dues by driver, expenses, the driver roster and the tricycle registry. Each can be filtered by date where that applies, printed, or exported to CSV. The CSV opens in Excel or Google Sheets and is protected against formula injection. Finance reports need `finance.read`, and every export is logged in the audit log.
 
+### Document centre
+
+The **Documents** page brings together the driver and tricycle documents that need attention, in four views: waiting for review, expiring within 30 days, expired, and rejected. The expiry views also include the dates kept on each record (licence, LTO registration, MTOP, insurance) when no uploaded copy already covers them. Officers can view, verify or reject a document straight from the list.
+
 ### Driver portal
 
 Once approved, a driver sets up their own sign-in at `/driver/activate` (application reference, license number, and the mobile number on file) and then signs in at `/driver/login` with their mobile number. The portal shows their status, membership and dues, assigned tricycle, documents, and reminders for anything expiring within 30 days. Staff can see whether a driver has set up the portal on the driver's profile and can reset it. Demo driver: `09170000001` / `Toda2026demo` (its password can't be changed in demo mode).
