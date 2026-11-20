@@ -1,0 +1,1005 @@
+// TOMS — Tricycle Organization Management System
+// Full schema for all phases. Phase 1 uses: Organization, User, Role, Permission,
+// RolePermission, Session, LoginHistory, PasswordResetToken, Association,
+// AssociationOfficer, AssociationMembership, Driver, DriverDocument, Vehicle,
+// VehicleDocument, VehicleAssignment, MaintenanceRecord, AuditLog.
+// Later phases slot in without changing these tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Tenancy ─────────────────────────
+
+model Organization {
+  id           String   @id @default(uuid())
+  name         String
+  shortName    String?
+  address      String?
+  contactEmail String?
+  contactPhone String?
+  logoUrl      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  associations  Association[]
+  users         User[]
+  settings      SystemSetting[]
+  expenses      Expense[]
+  announcements Announcement[]
+  feeSchedules  FeeSchedule[]
+}
+
+// ───────────────────── Users, roles, auth ─────────────────────
+
+model Role {
+  id          String           @id @default(uuid())
+  key         String           @unique // SUPER_ADMIN, ORG_ADMIN, ASSOC_PRESIDENT, SECRETARY, TREASURER, DISPATCHER, AUDITOR
+  name        String
+  description String?
+  // Association-scoped roles only see data of the user's association.
+  scope       RoleScope        @default(ASSOCIATION)
+  isSystem    Boolean          @default(true)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+enum RoleScope {
+  GLOBAL // all organizations (Super Administrator)
+  ORGANIZATION // all associations in the user's organization
+  ASSOCIATION // only the user's assigned association
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique // e.g. drivers.read, drivers.approve
+  module      String
+  description String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id                 String        @id @default(uuid())
+  email              String        @unique
+  passwordHash       String
+  fullName           String
+  phone              String?
+  avatarUrl          String?
+  isActive           Boolean       @default(true)
+  mustChangePassword Boolean       @default(false)
+  roleId             String
+  role               Role          @relation(fields: [roleId], references: [id])
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id])
+  associationId      String?
+  association        Association?  @relation(fields: [associationId], references: [id])
+  lastLoginAt        DateTime?
+  failedLogins       Int           @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  deletedAt          DateTime?
+
+  sessions            Session[]
+  loginHistory        LoginHistory[]
+  resetTokens         PasswordResetToken[]
+  auditLogs           AuditLog[]
+  officerPositions    AssociationOfficer[]
+  recordedPayments    Payment[]            @relation("PaymentRecordedBy")
+  recordedExpenses    Expense[]            @relation("ExpenseRecordedBy")
+  verifiedDriverDocs  DriverDocument[]     @relation("DriverDocVerifiedBy")
+  verifiedVehicleDocs VehicleDocument[]    @relation("VehicleDocVerifiedBy")
+  announcements       Announcement[]
+  assignedIncidents   Incident[]           @relation("IncidentAssignee")
+  reportedIncidents   Incident[]           @relation("IncidentReporter")
+  incidentNotes       IncidentNote[]
+
+  @@index([roleId])
+  @@index([associationId])
+  @@index([organizationId])
+}
+
+model Session {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshHash String     @unique
+  userAgent   String?
+  ipAddress   String?
+  client      ClientType @default(WEB)
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastUsedAt  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+
+  @@index([userId])
+}
+
+enum ClientType {
+  WEB
+  MOBILE_DRIVER
+  MOBILE_PASSENGER
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  success   Boolean
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ───────────────────────── Associations ─────────────────────────
+
+model Association {
+  id                 String            @id @default(uuid())
+  code               String            @unique // e.g. TODA-001
+  name               String
+  acronym            String?
+  organizationId     String
+  organization       Organization      @relation(fields: [organizationId], references: [id])
+  barangay           String
+  city               String
+  province           String
+  address            String?
+  terminalLocation   String?
+  terminalLat        Float?
+  terminalLng        Float?
+  contactNumber      String?
+  email              String?
+  ltfrbAccreditation String?
+  dateEstablished    DateTime?
+  status             AssociationStatus @default(ACTIVE)
+  monthlyDues        Decimal           @default(0) @db.Decimal(10, 2)
+  dailyContribution  Decimal           @default(0) @db.Decimal(10, 2)
+  membershipFee      Decimal           @default(0) @db.Decimal(10, 2)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  users         User[]
+  officers      AssociationOfficer[]
+  memberships   AssociationMembership[]
+  drivers       Driver[]
+  vehicles      Vehicle[]
+  payments      Payment[]
+  dues          DueCharge[]
+  announcements AnnouncementTarget[]
+  documents     AssociationDocument[]
+  bookings      Booking[]
+  incidents     Incident[]
+  expenses      Expense[]
+
+  @@index([organizationId])
+}
+
+enum AssociationStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model AssociationOfficer {
+  id            String          @id @default(uuid())
+  associationId String
+  association   Association     @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id])
+  driverId      String?
+  driver        Driver?         @relation(fields: [driverId], references: [id])
+  name          String
+  position      OfficerPosition
+  termStart     DateTime
+  termEnd       DateTime?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+
+  @@index([associationId])
+}
+
+enum OfficerPosition {
+  PRESIDENT
+  VICE_PRESIDENT
+  SECRETARY
+  TREASURER
+  AUDITOR
+  PRO
+  BOARD_MEMBER
+  DISPATCHER
+}
+
+model AssociationMembership {
+  id            String           @id @default(uuid())
+  membershipNo  String           @unique
+  associationId String
+  association   Association      @relation(fields: [associationId], references: [id])
+  driverId      String
+  driver        Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  status        MembershipStatus @default(PENDING)
+  memberType    MemberType       @default(DRIVER)
+  appliedAt     DateTime         @default(now())
+  approvedAt    DateTime?
+  approvedById  String?
+  startDate     DateTime?
+  endDate       DateTime?
+  remarks       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([associationId, status])
+  @@index([driverId])
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  REJECTED
+  TERMINATED
+}
+
+enum MemberType {
+  DRIVER
+  OPERATOR
+  DRIVER_OPERATOR
+}
+
+model AssociationDocument {
+  id            String      @id @default(uuid())
+  associationId String
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  title         String
+  type          String
+  fileUrl       String
+  expiresAt     DateTime?
+  uploadedAt    DateTime    @default(now())
+}
+
+// ───────────────────────── Drivers ─────────────────────────
+
+model Driver {
+  id                String             @id @default(uuid())
+  driverCode        String             @unique // DRV-2026-00001
+  firstName         String
+  middleName        String?
+  lastName          String
+  suffix            String?
+  photoUrl          String?
+  dateOfBirth       DateTime
+  gender            Gender?
+  contactNumber     String
+  email             String?
+  address           String
+  barangay          String?
+  city              String?
+  emergencyName     String
+  emergencyRelation String?
+  emergencyPhone    String
+  licenseNumber     String             @unique
+  licenseType       LicenseType        @default(PROFESSIONAL)
+  licenseExpiry     DateTime
+  associationId     String?
+  association       Association?       @relation(fields: [associationId], references: [id])
+  status            DriverStatus       @default(PENDING)
+  applicationStatus ApplicationStatus  @default(PENDING)
+  rejectionReason   String?
+  suspensionReason  String?
+  suspendedUntil    DateTime?
+  registeredAt      DateTime           @default(now())
+  approvedAt        DateTime?
+  // Real-time / mobile fields (Phase 3)
+  isOnline          Boolean            @default(false)
+  availability      DriverAvailability @default(OFFLINE)
+  lastLat           Float?
+  lastLng           Float?
+  lastLocationAt    DateTime?
+  rating            Decimal?           @db.Decimal(3, 2)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+
+  documents          DriverDocument[]
+  memberships        AssociationMembership[]
+  vehicleAssignments VehicleAssignment[]
+  ownedVehicles      Vehicle[]               @relation("VehicleOwnerDriver")
+  payments           Payment[]
+  dues               DueCharge[]
+  bookings           Booking[]
+  locations          DriverLocation[]
+  officerRoles       AssociationOfficer[]
+  incidents          Incident[]
+  devices            DeviceToken[]
+  mobileAccount      MobileAccount?
+
+  @@index([associationId, status])
+  @@index([status])
+  @@index([licenseExpiry])
+  @@index([lastName, firstName])
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum LicenseType {
+  PROFESSIONAL
+  NON_PROFESSIONAL
+}
+
+enum DriverStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DriverAvailability {
+  OFFLINE
+  AVAILABLE
+  ON_TRIP
+  BREAK
+}
+
+model DriverDocument {
+  id           String         @id @default(uuid())
+  driverId     String
+  driver       Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  type         DriverDocType
+  documentNo   String?
+  fileUrl      String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  issuedAt     DateTime?
+  expiresAt    DateTime?
+  status       DocumentStatus @default(PENDING)
+  verifiedById String?
+  verifiedBy   User?          @relation("DriverDocVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt   DateTime?
+  remarks      String?
+  uploadedAt   DateTime       @default(now())
+
+  @@index([driverId])
+  @@index([expiresAt])
+}
+
+enum DriverDocType {
+  DRIVERS_LICENSE
+  GOVERNMENT_ID
+  BARANGAY_CLEARANCE
+  NBI_CLEARANCE
+  POLICE_CLEARANCE
+  MEDICAL_CERTIFICATE
+  DRUG_TEST
+  MEMBERSHIP_FORM
+  PHOTO
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+// ───────────────────────── Vehicles ─────────────────────────
+
+model Vehicle {
+  id                 String           @id @default(uuid())
+  vehicleCode        String           @unique // TRC-00001
+  plateNumber        String           @unique
+  franchiseNumber    String?          @unique // MTOP / CPC number
+  franchiseExpiry    DateTime?
+  bodyNumber         String?
+  associationId      String?
+  association        Association?     @relation(fields: [associationId], references: [id])
+  ownerName          String
+  ownerContact       String?
+  ownerAddress       String?
+  ownerDriverId      String?
+  ownerDriver        Driver?          @relation("VehicleOwnerDriver", fields: [ownerDriverId], references: [id])
+  make               String
+  model              String
+  year               Int?
+  color              String
+  engineNumber       String?
+  chassisNumber      String?
+  orNumber           String? // LTO Official Receipt
+  crNumber           String? // LTO Certificate of Registration
+  registrationExpiry DateTime?
+  insuranceProvider  String?
+  insurancePolicyNo  String?
+  insuranceExpiry    DateTime?
+  inspectionStatus   InspectionStatus @default(PENDING)
+  lastInspectionAt   DateTime?
+  status             VehicleStatus    @default(OPERATIONAL)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+
+  assignments VehicleAssignment[]
+  documents   VehicleDocument[]
+  maintenance MaintenanceRecord[]
+  bookings    Booking[]
+
+  @@index([associationId, status])
+  @@index([registrationExpiry])
+}
+
+enum InspectionStatus {
+  PENDING
+  PASSED
+  FAILED
+  EXPIRED
+}
+
+enum VehicleStatus {
+  OPERATIONAL
+  UNDER_MAINTENANCE
+  INACTIVE
+}
+
+model VehicleAssignment {
+  id           String    @id @default(uuid())
+  vehicleId    String
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId     String
+  driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+  assignedById String?
+  remarks      String?
+
+  @@index([vehicleId, unassignedAt])
+  @@index([driverId, unassignedAt])
+}
+
+model VehicleDocument {
+  id           String         @id @default(uuid())
+  vehicleId    String
+  vehicle      Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type         VehicleDocType
+  documentNo   String?
+  fileUrl      String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  expiresAt    DateTime?
+  status       DocumentStatus @default(PENDING)
+  verifiedById String?
+  verifiedBy   User?          @relation("VehicleDocVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt   DateTime?
+  remarks      String?
+  uploadedAt   DateTime       @default(now())
+
+  @@index([vehicleId])
+  @@index([expiresAt])
+}
+
+enum VehicleDocType {
+  OFFICIAL_RECEIPT
+  CERTIFICATE_OF_REGISTRATION
+  FRANCHISE_MTOP
+  INSURANCE
+  INSPECTION_CERTIFICATE
+  DEED_OF_SALE
+  OTHER
+}
+
+model MaintenanceRecord {
+  id          String          @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type        MaintenanceType
+  description String
+  shopName    String?
+  cost        Decimal         @default(0) @db.Decimal(10, 2)
+  odometerKm  Int?
+  performedAt DateTime
+  nextDueAt   DateTime?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  @@index([vehicleId, performedAt])
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  REPAIR
+  INSPECTION
+  ACCIDENT_REPAIR
+  OTHER
+}
+
+// ───────────────────── Finance (Phase 2) ─────────────────────
+
+model FeeSchedule {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  type           PaymentType
+  name           String
+  amount         Decimal      @db.Decimal(10, 2)
+  frequency      Frequency
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+}
+
+enum Frequency {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  ANNUAL
+  PER_RIDE
+}
+
+/// An amount owed by a driver (dues, contributions). Payments settle these.
+model DueCharge {
+  id            String              @id @default(uuid())
+  driverId      String
+  driver        Driver              @relation(fields: [driverId], references: [id])
+  associationId String
+  association   Association         @relation(fields: [associationId], references: [id])
+  type          PaymentType
+  periodStart   DateTime
+  periodEnd     DateTime
+  amount        Decimal             @db.Decimal(10, 2)
+  amountPaid    Decimal             @default(0) @db.Decimal(10, 2)
+  dueDate       DateTime
+  status        DueStatus           @default(UNPAID)
+  createdAt     DateTime            @default(now())
+  allocations   PaymentAllocation[]
+
+  @@index([driverId, status])
+  @@index([associationId, dueDate])
+}
+
+enum DueStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  WAIVED
+  OVERDUE
+}
+
+model Payment {
+  id            String              @id @default(uuid())
+  receiptNo     String              @unique
+  driverId      String?
+  driver        Driver?             @relation(fields: [driverId], references: [id])
+  associationId String
+  association   Association         @relation(fields: [associationId], references: [id])
+  type          PaymentType
+  method        PaymentMethod
+  amount        Decimal             @db.Decimal(10, 2)
+  referenceNo   String? // GCash / Maya ref
+  paidAt        DateTime            @default(now())
+  notes         String?
+  status        PaymentStatus       @default(POSTED)
+  // Corrections never edit a posted payment; they void it and link a replacement.
+  voidedAt      DateTime?
+  voidReason    String?
+  replacesId    String?             @unique
+  replaces      Payment?            @relation("PaymentCorrection", fields: [replacesId], references: [id])
+  replacedBy    Payment?            @relation("PaymentCorrection")
+  recordedById  String
+  recordedBy    User                @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+  bookingId     String?             @unique
+  booking       Booking?            @relation(fields: [bookingId], references: [id])
+  createdAt     DateTime            @default(now())
+  allocations   PaymentAllocation[]
+
+  @@index([associationId, paidAt])
+  @@index([driverId, paidAt])
+}
+
+model PaymentAllocation {
+  paymentId String
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  dueId     String
+  due       DueCharge @relation(fields: [dueId], references: [id], onDelete: Cascade)
+  amount    Decimal   @db.Decimal(10, 2)
+
+  @@id([paymentId, dueId])
+}
+
+enum PaymentType {
+  MEMBERSHIP_FEE
+  DAILY_CONTRIBUTION
+  WEEKLY_CONTRIBUTION
+  MONTHLY_DUES
+  ASSOCIATION_FEE
+  RIDE_COMMISSION
+  PENALTY
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  GCASH
+  MAYA
+  BANK_TRANSFER
+  OTHER
+}
+
+enum PaymentStatus {
+  POSTED
+  VOIDED
+}
+
+model Expense {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  associationId  String?
+  association    Association?  @relation(fields: [associationId], references: [id])
+  category       String
+  description    String
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  payee          String?
+  referenceNo    String?
+  spentAt        DateTime
+  recordedById   String
+  recordedBy     User          @relation("ExpenseRecordedBy", fields: [recordedById], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, spentAt])
+}
+
+// ──────────────── Rides & dispatch (Phase 3) ────────────────
+
+model Passenger {
+  id            String         @id @default(uuid())
+  fullName      String
+  phone         String         @unique
+  email         String?
+  createdAt     DateTime       @default(now())
+  bookings      Booking[]
+  devices       DeviceToken[]
+  mobileAccount MobileAccount?
+}
+
+/// Login for the mobile apps. Separate from admin User so mobile tokens
+/// can never reach administrative endpoints.
+model MobileAccount {
+  id           String     @id @default(uuid())
+  phone        String     @unique
+  passwordHash String
+  kind         ClientType
+  driverId     String?    @unique
+  driver       Driver?    @relation(fields: [driverId], references: [id])
+  passengerId  String?    @unique
+  passenger    Passenger? @relation(fields: [passengerId], references: [id])
+  createdAt    DateTime   @default(now())
+}
+
+model Booking {
+  id             String            @id @default(uuid())
+  bookingCode    String            @unique
+  passengerId    String?
+  passenger      Passenger?        @relation(fields: [passengerId], references: [id])
+  driverId       String?
+  driver         Driver?           @relation(fields: [driverId], references: [id])
+  vehicleId      String?
+  vehicle        Vehicle?          @relation(fields: [vehicleId], references: [id])
+  associationId  String?
+  association    Association?      @relation(fields: [associationId], references: [id])
+  pickupAddress  String
+  pickupLat      Float
+  pickupLng      Float
+  dropoffAddress String
+  dropoffLat     Float
+  dropoffLng     Float
+  passengers     Int               @default(1)
+  estimatedFare  Decimal           @db.Decimal(10, 2)
+  actualFare     Decimal?          @db.Decimal(10, 2)
+  distanceKm     Decimal?          @db.Decimal(8, 2)
+  paymentMethod  PaymentMethod     @default(CASH)
+  paymentStatus  RidePaymentStatus @default(UNPAID)
+  status         RideStatus        @default(PENDING)
+  requestedAt    DateTime          @default(now())
+  acceptedAt     DateTime?
+  pickedUpAt     DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  cancelledBy    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  events  RideEvent[]
+  payment Payment?
+
+  @@index([status, requestedAt])
+  @@index([driverId, requestedAt])
+  @@index([associationId, requestedAt])
+}
+
+enum RideStatus {
+  PENDING
+  ACCEPTED
+  DRIVER_ASSIGNED
+  DRIVER_ARRIVING
+  PASSENGER_PICKED_UP
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum RidePaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+/// Append-only history of every ride status change (who, when, from where).
+model RideEvent {
+  id         String      @id @default(uuid())
+  bookingId  String
+  booking    Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromStatus RideStatus?
+  toStatus   RideStatus
+  actorType  String // SYSTEM, DRIVER, PASSENGER, DISPATCHER
+  actorId    String?
+  note       String?
+  lat        Float?
+  lng        Float?
+  createdAt  DateTime    @default(now())
+
+  @@index([bookingId, createdAt])
+}
+
+model DriverLocation {
+  id         String   @id @default(uuid())
+  driverId   String
+  driver     Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  heading    Float?
+  speedKph   Float?
+  recordedAt DateTime @default(now())
+
+  @@index([driverId, recordedAt])
+}
+
+// ──────────── Communication (Phase 2 / 3) ────────────
+
+model Announcement {
+  id             String               @id @default(uuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  title          String
+  body           String
+  priority       AnnouncementPriority @default(NORMAL)
+  audience       Audience             @default(ALL_DRIVERS)
+  status         AnnouncementStatus   @default(DRAFT)
+  publishAt      DateTime?
+  expiresAt      DateTime?
+  authorId       String
+  author         User                 @relation(fields: [authorId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  targets        AnnouncementTarget[]
+
+  @@index([status, publishAt])
+}
+
+model AnnouncementTarget {
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  associationId  String
+  association    Association  @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, associationId])
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  EMERGENCY
+}
+
+enum Audience {
+  ALL_DRIVERS
+  ASSOCIATIONS
+  OFFICERS
+  PASSENGERS
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+model Notification {
+  id            String               @id @default(uuid())
+  recipientType String // USER, DRIVER, PASSENGER
+  recipientId   String
+  title         String
+  body          String
+  category      NotificationCategory
+  data          Json?
+  readAt        DateTime?
+  pushedAt      DateTime?
+  createdAt     DateTime             @default(now())
+
+  @@index([recipientType, recipientId, readAt])
+}
+
+enum NotificationCategory {
+  ANNOUNCEMENT
+  DOCUMENT_EXPIRY
+  DUES_REMINDER
+  RIDE
+  SYSTEM
+  EMERGENCY
+}
+
+model DeviceToken {
+  id          String     @id @default(uuid())
+  token       String     @unique
+  platform    String // android, ios, web
+  driverId    String?
+  driver      Driver?    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  passengerId String?
+  passenger   Passenger? @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+}
+
+// ──────────── Complaints & incidents (Phase 2+) ────────────
+
+model Incident {
+  id                 String               @id @default(uuid())
+  caseNo             String               @unique
+  type               IncidentType
+  title              String
+  description        String
+  occurredAt         DateTime
+  location           String?
+  associationId      String?
+  association        Association?         @relation(fields: [associationId], references: [id])
+  driverId           String?
+  driver             Driver?              @relation(fields: [driverId], references: [id])
+  bookingId          String?
+  complainantName    String?
+  complainantPhone   String?
+  status             IncidentStatus       @default(OPEN)
+  severity           Severity             @default(LOW)
+  reportedById       String?
+  reportedBy         User?                @relation("IncidentReporter", fields: [reportedById], references: [id])
+  assignedToId       String?
+  assignedTo         User?                @relation("IncidentAssignee", fields: [assignedToId], references: [id])
+  resolution         String?
+  disciplinaryAction String?
+  resolvedAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  notes              IncidentNote[]
+  attachments        IncidentAttachment[]
+
+  @@index([status, createdAt])
+  @@index([driverId])
+}
+
+enum IncidentType {
+  PASSENGER_COMPLAINT
+  DRIVER_COMPLAINT
+  ACCIDENT
+  LOST_AND_FOUND
+  VIOLATION
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model IncidentNote {
+  id         String   @id @default(uuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+model IncidentAttachment {
+  id         String   @id @default(uuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  uploadedAt DateTime @default(now())
+}
+
+// ──────────────── Audit & settings ────────────────
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail     String?
+  action        String // CREATE, UPDATE, DELETE, LOGIN, APPROVE, SUSPEND, ...
+  entity        String // Driver, Vehicle, Payment, ...
+  entityId      String?
+  summary       String
+  before        Json?
+  after         Json?
+  ipAddress     String?
+  associationId String?
+  createdAt     DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  key            String
+  value          Json
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, key])
+}

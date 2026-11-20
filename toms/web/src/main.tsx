@@ -1,0 +1,95 @@
+import { StrictMode, lazy, Suspense, type ReactNode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import './index.css';
+import { AuthProvider, useAuth } from '@/lib/auth';
+import { ApiError } from '@/lib/api';
+import { Layout } from '@/components/Layout';
+import { Spinner, EmptyState } from '@/components/ui/misc';
+import { ForcedPasswordChange, ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/pages/auth';
+import { ShieldOff } from 'lucide-react';
+
+const Dashboard = lazy(() => import('@/pages/dashboard'));
+const DriversList = lazy(() => import('@/pages/drivers/list'));
+const DriverForm = lazy(() => import('@/pages/drivers/form'));
+const DriverProfile = lazy(() => import('@/pages/drivers/profile'));
+const VehiclesList = lazy(() => import('@/pages/vehicles/list'));
+const VehicleForm = lazy(() => import('@/pages/vehicles/form'));
+const VehicleProfile = lazy(() => import('@/pages/vehicles/profile'));
+const AssociationsList = lazy(() => import('@/pages/associations/list'));
+const AssociationForm = lazy(() => import('@/pages/associations/form'));
+const AssociationProfile = lazy(() => import('@/pages/associations/profile'));
+const UsersPage = lazy(() => import('@/pages/users'));
+const AuditPage = lazy(() => import('@/pages/audit'));
+const SettingsPage = lazy(() => import('@/pages/settings'));
+
+const qc = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: (n, e) => !(e instanceof ApiError && e.status < 500) && n < 2,
+    },
+  },
+});
+
+const Loading = () => <div className="flex min-h-[50vh] items-center justify-center"><Spinner className="size-7" /></div>;
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const loc = useLocation();
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner className="size-8" /></div>;
+  if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
+  if (user.mustChangePassword) return <ForcedPasswordChange />;
+  return <>{children}</>;
+}
+
+function Guard({ perm, children }: { perm?: string; children: ReactNode }) {
+  const { can } = useAuth();
+  if (perm && !can(perm)) return <EmptyState icon={ShieldOff} title="You don't have access to this page" description="Ask your organization administrator if you need this." />;
+  return <Suspense fallback={<Loading />}>{children}</Suspense>;
+}
+
+function PublicOnly({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? <Navigate to="/" replace /> : <>{children}</>;
+}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <QueryClientProvider client={qc}>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route element={<RequireAuth><Layout /></RequireAuth>}>
+              <Route index element={<Guard perm="dashboard.view"><Dashboard /></Guard>} />
+              <Route path="drivers" element={<Guard perm="drivers.read"><DriversList /></Guard>} />
+              <Route path="drivers/new" element={<Guard perm="drivers.create"><DriverForm /></Guard>} />
+              <Route path="drivers/:id" element={<Guard perm="drivers.read"><DriverProfile /></Guard>} />
+              <Route path="drivers/:id/edit" element={<Guard perm="drivers.update"><DriverForm /></Guard>} />
+              <Route path="vehicles" element={<Guard perm="vehicles.read"><VehiclesList /></Guard>} />
+              <Route path="vehicles/new" element={<Guard perm="vehicles.create"><VehicleForm /></Guard>} />
+              <Route path="vehicles/:id" element={<Guard perm="vehicles.read"><VehicleProfile /></Guard>} />
+              <Route path="vehicles/:id/edit" element={<Guard perm="vehicles.update"><VehicleForm /></Guard>} />
+              <Route path="associations" element={<Guard perm="associations.read"><AssociationsList /></Guard>} />
+              <Route path="associations/new" element={<Guard perm="associations.create"><AssociationForm /></Guard>} />
+              <Route path="associations/:id" element={<Guard perm="associations.read"><AssociationProfile /></Guard>} />
+              <Route path="associations/:id/edit" element={<Guard perm="associations.update"><AssociationForm /></Guard>} />
+              <Route path="users" element={<Guard perm="users.read"><UsersPage /></Guard>} />
+              <Route path="audit" element={<Guard perm="audit.read"><AuditPage /></Guard>} />
+              <Route path="settings" element={<Guard><SettingsPage /></Guard>} />
+              <Route path="*" element={<EmptyState title="Page not found" description="The page you're looking for doesn't exist." />} />
+            </Route>
+          </Routes>
+          <Toaster richColors position="top-right" closeButton />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </StrictMode>,
+);

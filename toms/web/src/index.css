@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 214 32% 95%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 60% 95%;
+    --accent-foreground: 217 91% 35%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 33%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 92% 42%;
+    --warning-foreground: 0 0% 100%;
+    --border: 214 25% 88%;
+    --input: 214 25% 84%;
+    --ring: 217 91% 50%;
+    --radius: 0.5rem;
+    --sidebar: 222 47% 14%;
+    --sidebar-foreground: 214 30% 92%;
+    --sidebar-muted: 215 20% 62%;
+    --sidebar-active: 217 70% 28%;
+    /* Categorical chart palette, validated for CVD separation + contrast (light surface) */
+    --c1: #0b64f4;
+    --c2: #1c9c8d;
+    --c3: #c46a06;
+    --c-muted: #94a3b8;
+    --grid: #e5e7eb;
+  }
+  .dark {
+    --background: 222 40% 7%;
+    --foreground: 214 30% 93%;
+    --card: 222 35% 10%;
+    --card-foreground: 214 30% 93%;
+    --popover: 222 35% 11%;
+    --popover-foreground: 214 30% 93%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 222 25% 17%;
+    --secondary-foreground: 214 30% 90%;
+    --muted: 222 25% 15%;
+    --muted-foreground: 215 18% 65%;
+    --accent: 217 40% 18%;
+    --accent-foreground: 217 91% 75%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 45%;
+    --success-foreground: 222 47% 8%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 8%;
+    --border: 222 22% 20%;
+    --input: 222 22% 24%;
+    --ring: 217 91% 60%;
+    --sidebar: 222 40% 9%;
+    --sidebar-foreground: 214 30% 90%;
+    --sidebar-muted: 215 18% 58%;
+    --sidebar-active: 217 60% 22%;
+    /* Dark steps chosen separately and validated against the dark surface */
+    --c1: #468af6;
+    --c2: #279a8d;
+    --c3: #cc760a;
+    --c-muted: #64748b;
+    --grid: #1f2937;
+  }
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-background text-foreground antialiased; font-feature-settings: 'cv11', 'ss01'; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
