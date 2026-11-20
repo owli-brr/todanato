@@ -29,7 +29,7 @@ function samplePdf(title: string) {
 const prisma = new PrismaClient();
 
 // Bump when the sample data changes shape, so deployed demos reload it.
-const SEED_VERSION = 'todanato-3';
+const SEED_VERSION = 'todanato-4';
 
 // Deterministic PRNG so every seed looks the same.
 let s = 20261120;
@@ -428,6 +428,16 @@ async function main() {
   await prisma.dueCharge.createMany({ data: dues });
   for (let i = 0; i < payments.length; i += 1000) await prisma.payment.createMany({ data: payments.slice(i, i + 1000) });
   for (let i = 0; i < allocs.length; i += 1000) await prisma.paymentAllocation.createMany({ data: allocs.slice(i, i + 1000) });
+
+  // Announcements
+  const ann = (title: string, body: string, audience: 'ALL_DRIVERS' | 'OFFICERS' | 'EVERYONE', priority: 'NORMAL' | 'IMPORTANT' | 'EMERGENCY', publishAt: Date | null, expiresAt: Date | null, status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' = 'PUBLISHED') =>
+    prisma.announcement.create({ data: { organizationId: org.id, title, body, audience, priority, publishAt, expiresAt, status, authorId: userRows[4].id, targets: { create: { associationId: SR.id } } } });
+  await ann('General assembly this Sunday', 'All members are expected at the general assembly on Sunday, 2:00 PM, at the barangay hall. Agenda: election of officers, terminal schedule, and the Christmas party. Attendance counts toward your good standing.', 'ALL_DRIVERS', 'IMPORTANT', daysAgo(2), daysAhead(5));
+  await ann('Monthly dues are due on the 15th', 'Please settle this month’s dues at the TODA office or via GCash to the treasurer on or before the 15th. Bring your receipt number if you paid by GCash.', 'ALL_DRIVERS', 'NORMAL', daysAgo(6), null);
+  await ann('Road closure on P. Oliveros St.', 'P. Oliveros St. is closed from 6 AM to 6 PM this Saturday for the fiesta procession. Use the Sumulong Hwy loop and the temporary queue beside the market.', 'EVERYONE', 'EMERGENCY', daysAgo(0), daysAhead(2));
+  await ann('Officers meeting: budget review', 'Officers meeting on Thursday, 7 PM, at the TODA office to review the Q4 budget and the expired documents list.', 'OFFICERS', 'NORMAL', daysAgo(1), daysAhead(3));
+  await ann('Free medical check-up (draft)', 'Barangay health center offers free BP and blood sugar checks for TODA members. Date to follow.', 'ALL_DRIVERS', 'NORMAL', null, null, 'DRAFT');
+  await ann('Fare matrix reminder', 'The approved fare matrix is posted at the terminal. Overcharging is a violation and will be acted on.', 'ALL_DRIVERS', 'NORMAL', daysAgo(40), daysAgo(10));
 
   // Expenses
   const expenses: Prisma.ExpenseCreateManyInput[] = [];

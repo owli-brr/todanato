@@ -369,3 +369,39 @@ test('document centre: queue counts, views and verify from the queue', async () 
   // Dispatcher has drivers.read? Either way the endpoint must not 500.
   assert.ok([200, 403].includes((await call(disp, 'GET', '/documents/queue')).status));
 });
+
+test('announcements: drafts stay private, live ones reach the right audience, scheduling and take-down', async () => {
+  const sec = await login('secretary@todanato.ph');
+  const tr = await login('treasurer@todanato.ph');
+  assert.equal((await call(tr, 'POST', '/announcements', { title: 'Nope', body: 'Not allowed', audience: 'ALL_DRIVERS' })).status, 403);
+
+  const stamp = Date.now();
+  const draft = await call(sec, 'POST', '/announcements', { title: `Draft ${stamp}`, body: 'Hidden for now', audience: 'EVERYONE' });
+  assert.equal(draft.status, 201, JSON.stringify(draft.body));
+  assert.equal(draft.body.state, 'DRAFT');
+  const live = await call(sec, 'POST', '/announcements', { title: `Staff ${stamp}`, body: 'Officers only', audience: 'OFFICERS', publish: true, priority: 'IMPORTANT' });
+  assert.equal(live.body.state, 'LIVE');
+  const later = await call(sec, 'POST', '/announcements', { title: `Later ${stamp}`, body: 'Next week', audience: 'ALL_DRIVERS', publish: true, publishAt: new Date(Date.now() + 7 * 86400000).toISOString() });
+  assert.equal(later.body.state, 'SCHEDULED');
+  assert.equal((await call(sec, 'POST', '/announcements', { title: 'Bad', body: 'Ends first', audience: 'EVERYONE', publish: true, expiresAt: new Date(Date.now() - 1000).toISOString() })).status, 400);
+
+  // Staff feed: officers' notice yes, draft and scheduled no
+  const feed = (await call(tr, 'GET', '/announcements/feed')).body.map((a: any) => a.title);
+  assert.ok(feed.includes(`Staff ${stamp}`));
+  assert.ok(!feed.includes(`Draft ${stamp}`) && !feed.includes(`Later ${stamp}`));
+
+  // Driver portal: driver notices only, never staff-only ones
+  const login_ = await fetch(BASE + '/driver/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: '09170000001', password: PW }) });
+  const cookie = login_.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+  const me = await (await fetch(BASE + '/driver/me', { headers: { Cookie: cookie } })).json();
+  const titles = me.announcements.map((a: any) => a.title);
+  assert.ok(!titles.includes(`Staff ${stamp}`) && !titles.includes(`Later ${stamp}`));
+  assert.ok(me.announcements.length > 0, 'seeded driver announcements are live');
+
+  // Published ones can't be deleted, only taken down; drafts can be deleted
+  assert.equal((await call(sec, 'DELETE', `/announcements/${live.body.id}`)).status, 409);
+  assert.equal((await call(sec, 'POST', `/announcements/${live.body.id}/archive`, {})).body.state, 'ARCHIVED');
+  assert.ok(!(await call(tr, 'GET', '/announcements/feed')).body.some((a: any) => a.id === live.body.id));
+  assert.equal((await call(sec, 'DELETE', `/announcements/${draft.body.id}`)).status, 200);
+  await call(sec, 'POST', `/announcements/${later.body.id}/archive`, {});
+});

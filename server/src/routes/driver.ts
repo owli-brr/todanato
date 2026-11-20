@@ -10,6 +10,7 @@ import { sendStored } from '../lib/uploads';
 import { isDemoDriver } from '../lib/demo';
 import { JWT_SECRET } from '../middleware/auth';
 import { passwordSchema } from './auth';
+import { byPriority, liveWhere } from './announcements';
 import { driverFullName } from './drivers';
 
 // Driver portal: approved drivers sign in with their mobile number and see their own records.
@@ -113,9 +114,10 @@ driverPortalRouter.get('/me', requireDriver, ah(async (req, res) => {
     },
   });
   const v = d.vehicleAssignments[0]?.vehicle ?? null;
-  const [openDues, payments] = await Promise.all([
+  const [openDues, payments, announcements] = await Promise.all([
     prisma.dueCharge.findMany({ where: { driverId: d.id, status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] } }, orderBy: { dueDate: 'asc' }, select: { id: true, type: true, periodStart: true, amount: true, amountPaid: true, dueDate: true } }),
     prisma.payment.findMany({ where: { driverId: d.id, status: 'POSTED' }, orderBy: { paidAt: 'desc' }, take: 10, select: { id: true, receiptNo: true, type: true, method: true, amount: true, paidAt: true } }),
+    prisma.announcement.findMany({ where: liveWhere(['ALL_DRIVERS', 'EVERYONE']), take: 10, select: { id: true, title: true, body: true, priority: true, publishAt: true, createdAt: true } }),
   ]);
   const balance = openDues.reduce((s, x) => s + Number(x.amount) - Number(x.amountPaid), 0);
   const in30 = Date.now() + 30 * 86400000;
@@ -145,6 +147,7 @@ driverPortalRouter.get('/me', requireDriver, ah(async (req, res) => {
     vehicle: v,
     documents: d.documents,
     reminders,
+    announcements: announcements.sort(byPriority),
     finance: { balance: Math.round(balance * 100) / 100, openDues: openDues.map((x) => ({ ...x, balance: Number(x.amount) - Number(x.amountPaid), overdue: x.dueDate.getTime() < Date.now() })), payments },
   });
 }));
