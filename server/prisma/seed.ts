@@ -29,7 +29,7 @@ function samplePdf(title: string) {
 const prisma = new PrismaClient();
 
 // Bump when the sample data changes shape, so deployed demos reload it.
-const SEED_VERSION = 'todanato-4';
+const SEED_VERSION = 'todanato-5';
 
 // Deterministic PRNG so every seed looks the same.
 let s = 20261120;
@@ -438,6 +438,28 @@ async function main() {
   await ann('Officers meeting: budget review', 'Officers meeting on Thursday, 7 PM, at the TODA office to review the Q4 budget and the expired documents list.', 'OFFICERS', 'NORMAL', daysAgo(1), daysAhead(3));
   await ann('Free medical check-up (draft)', 'Barangay health center offers free BP and blood sugar checks for TODA members. Date to follow.', 'ALL_DRIVERS', 'NORMAL', null, null, 'DRAFT');
   await ann('Fare matrix reminder', 'The approved fare matrix is posted at the terminal. Overcharging is a violation and will be acted on.', 'ALL_DRIVERS', 'NORMAL', daysAgo(40), daysAgo(10));
+
+  // Incidents
+  const pres = userRows[3];
+  const act = drivers.filter((d) => d.status === 'ACTIVE');
+  const susp = drivers.filter((d) => d.status === 'SUSPENDED');
+  const inc = async (n: number, x: { type: 'PASSENGER_COMPLAINT' | 'DRIVER_COMPLAINT' | 'ACCIDENT' | 'LOST_AND_FOUND' | 'VIOLATION' | 'OTHER'; title: string; description: string; daysAgo: number; location?: string; driverId?: string; complainantName?: string; complainantPhone?: string; severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; status: 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED'; resolution?: string; disciplinaryAction?: string; notes?: string[] }) => {
+    const at = daysAgo(x.daysAgo);
+    await prisma.incident.create({ data: {
+      caseNo: `INC-${new Date().getFullYear()}-${pad(n, 4)}`, type: x.type, title: x.title, description: x.description, occurredAt: at, location: x.location, associationId: SR.id,
+      driverId: x.driverId, complainantName: x.complainantName, complainantPhone: x.complainantPhone, severity: x.severity, status: x.status,
+      reportedById: userRows[4].id, assignedToId: x.status === 'OPEN' ? null : pres.id, resolution: x.resolution, disciplinaryAction: x.disciplinaryAction,
+      resolvedAt: ['RESOLVED', 'DISMISSED'].includes(x.status) ? new Date(at.getTime() + 3 * 86400000) : null, createdAt: at,
+      notes: { create: (x.notes ?? []).map((body, i) => ({ body, authorId: pres.id, createdAt: new Date(at.getTime() + (i + 1) * 86400000) })) },
+    } });
+  };
+  await inc(1, { type: 'PASSENGER_COMPLAINT', title: 'Overcharged from market to Cathedral', description: 'Passenger says she was charged ₱60 for a regular trip from the public market to the Cathedral. The fare matrix says ₱25 per passenger.', daysAgo: 1, location: 'Public market loading bay', driverId: act[3].id, complainantName: 'Liza Manalo', complainantPhone: '09171234567', severity: 'MEDIUM', status: 'OPEN' });
+  await inc(2, { type: 'ACCIDENT', title: 'Minor collision with a motorcycle', description: 'Tricycle sideswiped a motorcycle at the Sumulong Hwy junction. No injuries. Both parties exchanged details; the barangay tanod made a report.', daysAgo: 3, location: 'Sumulong Hwy corner P. Oliveros', driverId: act[7].id, severity: 'HIGH', status: 'INVESTIGATING', notes: ['Got a copy of the barangay blotter. Waiting for the motorcycle owner’s repair estimate.', 'Driver says the motorcycle overtook on the right. Asked the dispatcher on duty for a statement.'] });
+  await inc(3, { type: 'LOST_AND_FOUND', title: 'Phone left in tricycle', description: 'Driver turned over a black Android phone found under the seat after the 5 PM trip to Dela Paz.', daysAgo: 6, location: 'Terminal', driverId: act[12].id, severity: 'LOW', status: 'RESOLVED', resolution: 'Owner identified by lock-screen photo and called the TODA office. Phone returned on presentation of ID; acknowledgment signed.', notes: ['Phone kept in the office drawer, logged in the lost-and-found notebook.'] });
+  await inc(4, { type: 'VIOLATION', title: 'Cutting the terminal queue', description: 'Two drivers reported that this driver repeatedly picked up passengers ahead of the queue at the terminal during the morning rush.', daysAgo: 12, location: 'Terminal', driverId: susp[0]?.id ?? act[1].id, severity: 'MEDIUM', status: 'RESOLVED', resolution: 'Driver admitted the violation during the hearing with the officers. Second offense this year.', disciplinaryAction: '7-day suspension and ₱500 penalty per the TODA by-laws.', notes: ['Hearing set for Friday 4 PM with the president and secretary.'] });
+  await inc(5, { type: 'DRIVER_COMPLAINT', title: 'Passenger refused to pay', description: 'Driver reports a passenger refused to pay the ₱25 fare and became aggressive when asked.', daysAgo: 9, location: 'Brgy. Dela Paz', driverId: act[20].id, severity: 'LOW', status: 'DISMISSED', resolution: 'Passenger could not be identified. Driver advised to call the terminal dispatcher right away next time.' });
+  await inc(6, { type: 'PASSENGER_COMPLAINT', title: 'Reckless driving reported on Facebook', description: 'A post in the barangay Facebook group shows a TODA tricycle (body number visible) overtaking dangerously on the bridge.', daysAgo: 2, location: 'Sumulong bridge', driverId: act[25].id, complainantName: 'Barangay FB group', severity: 'HIGH', status: 'INVESTIGATING', notes: ['Screenshot saved. Body number matches the assigned unit.'] });
+  await inc(7, { type: 'OTHER', title: 'Terminal shed roof leaking', description: 'Roof of the waiting shed leaks over the queue area when it rains. Passengers are getting wet.', daysAgo: 4, location: 'Terminal', severity: 'LOW', status: 'OPEN' });
 
   // Expenses
   const expenses: Prisma.ExpenseCreateManyInput[] = [];
