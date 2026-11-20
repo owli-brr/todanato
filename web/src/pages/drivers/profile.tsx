@@ -29,6 +29,7 @@ interface Driver {
   rides: { id: string; bookingCode: string; pickupAddress: string; dropoffAddress: string; requestedAt: string; status: string; actualFare: string | null; estimatedFare: string; paymentMethod: string }[];
   rideSummary: { total: number; completed: number; earnings: string | number };
   activity: { id: string; action: string; summary: string; userEmail: string | null; createdAt: string }[];
+  portal?: { active: boolean; since?: string; lastLoginAt?: string | null; locked?: boolean };
 }
 
 const DRIVER_DOC_TYPES = ['DRIVERS_LICENSE', 'GOVERNMENT_ID', 'BARANGAY_CLEARANCE', 'NBI_CLEARANCE', 'POLICE_CLEARANCE', 'MEDICAL_CERTIFICATE', 'DRUG_TEST', 'MEMBERSHIP_FORM', 'OTHER'];
@@ -44,6 +45,7 @@ export default function DriverProfile() {
   const [action, setAction] = useState<Action>(null);
   const [reason, setReason] = useState('');
   const [until, setUntil] = useState('');
+  const [resetPortal, setResetPortal] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => { refetch(); qc.invalidateQueries({ queryKey: ['drivers'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); };
@@ -177,6 +179,25 @@ export default function DriverProfile() {
                 ]} />
               </CardContent>
             </Card>
+            {d.applicationStatus === 'APPROVED' && (
+              <Card className="lg:col-start-3">
+                <CardHeader><CardTitle>Driver portal</CardTitle></CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {d.portal?.active ? (
+                    <>
+                      <DescList cols={1} items={[
+                        ['Status', d.portal.locked ? <Badge tone="amber">Temporarily locked</Badge> : <Badge tone="green">Active</Badge>],
+                        ['Account set up', fmtDate(d.portal.since ?? null)],
+                        ['Last sign-in', d.portal.lastLoginAt ? fmtDateTime(d.portal.lastLoginAt) : 'Never'],
+                      ]} />
+                      {can('drivers.update') && <Button size="sm" variant="outline" onClick={() => setResetPortal(true)}>Reset portal account</Button>}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground">Not set up yet. The driver can set it up at <span className="font-mono">/driver/activate</span> with their application reference, license number and mobile number.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -296,6 +317,19 @@ export default function DriverProfile() {
           <Card><CardContent className="pt-5"><ActivityList items={d.activity} /></CardContent></Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={resetPortal}
+        onOpenChange={setResetPortal}
+        title="Reset portal account?"
+        description="This removes the driver's portal sign-in. They can set it up again with their application reference, license number and mobile number."
+        confirmLabel="Reset account"
+        tone="destructive"
+        onConfirm={async () => {
+          try { await api.del(`/drivers/${d.id}/portal-account`); toast.success('Portal account reset'); setResetPortal(false); refresh(); }
+          catch (e) { toast.error((e as Error).message); }
+        }}
+      />
 
       {action && (
         <ConfirmDialog

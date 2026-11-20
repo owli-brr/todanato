@@ -194,3 +194,66 @@ test('public driver application: apply → officer sees it → approve → statu
   assert.equal((await call(pres, 'POST', `/drivers/${found[0].id}/application`, { decision: 'APPROVE' })).status, 200);
   assert.equal((await call(null, 'POST', '/public/driver-applications/status', { reference: ref, licenseNumber: lic })).body.status, 'APPROVED');
 });
+
+test('driver portal: approved applicant activates, signs in, sees only their own record', async () => {
+  const stamp = String(Date.now()).slice(-7);
+  const lic = `Q${stamp.slice(0, 2)}-26-${stamp.slice(-6)}`;
+  const phone = `0918${stamp}`;
+  const fd = new FormData();
+  const fields: Record<string, string> = {
+    firstName: 'Portal', lastName: 'Tester', dateOfBirth: '1991-02-03', contactNumber: phone,
+    address: '1 Test St', emergencyName: 'Kin Tester', emergencyPhone: '09175556666', licenseNumber: lic, licenseExpiry: '2030-01-01', consent: 'true',
+  };
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  const ref = (await call(null, 'POST', '/public/driver-applications', fd)).body.reference;
+  assert.ok(ref);
+
+  const post = (path: string, body: unknown, cookie?: string) => fetch(BASE + path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body),
+  });
+  const activate = { reference: ref, licenseNumber: lic, phone, password: 'Portal2026pass' };
+
+  // Not yet approved: cannot activate
+  assert.equal((await post('/driver/activate', activate)).status, 409, 'not approved yet');
+
+  const pres = await login('president@todanato.ph');
+  const id = (await call(pres, 'GET', `/drivers?q=${lic}&application=PENDING`)).body.items[0].id;
+  await call(pres, 'POST', `/drivers/${id}/application`, { decision: 'APPROVE' });
+
+  // Wrong phone fails, right details succeed, second activation is refused
+  assert.equal((await post('/driver/activate', { ...activate, phone: '09990000000' })).status, 400);
+  const act = await post('/driver/activate', activate);
+  assert.equal(act.status, 201, await act.clone().text());
+  assert.equal((await post('/driver/activate', activate)).status, 409);
+
+  const bad = await post('/driver/login', { phone, password: 'wrong-password' });
+  assert.equal(bad.status, 401);
+  const ok = await post('/driver/login', { phone, password: 'Portal2026pass' });
+  assert.equal(ok.status, 200);
+  const cookie = ok.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+  assert.match(cookie, /todanato_drv=/);
+
+  const me = await fetch(BASE + '/driver/me', { headers: { Cookie: cookie } });
+  assert.equal(me.status, 200);
+  const body = await me.json();
+  assert.equal(body.driver.licenseNumber, lic);
+  assert.ok(body.toda.name);
+
+  // A driver cookie is not a staff session
+  assert.equal((await fetch(BASE + '/drivers', { headers: { Cookie: cookie } })).status, 401);
+  assert.equal((await fetch(BASE + '/driver/me')).status, 401);
+
+  // Staff see the portal account and can reset it, which signs the driver out
+  assert.equal((await call(pres, 'GET', `/drivers/${id}`)).body.portal.active, true);
+  assert.equal((await call(pres, 'DELETE', `/drivers/${id}/portal-account`)).status, 200);
+  assert.equal((await fetch(BASE + '/driver/me', { headers: { Cookie: cookie } })).status, 401);
+
+  // Changing the password signs out older sessions
+  const again = await post('/driver/activate', activate);
+  assert.equal(again.status, 201, 'can set up again after a reset');
+  const c2 = again.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+  const changed = await post('/driver/change-password', { currentPassword: 'Portal2026pass', newPassword: 'Another2026pass' }, c2);
+  assert.equal(changed.status, 200);
+  assert.equal((await fetch(BASE + '/driver/me', { headers: { Cookie: c2 } })).status, 401, 'old session revoked');
+  assert.equal((await post('/driver/login', { phone, password: 'Another2026pass' })).status, 200);
+});

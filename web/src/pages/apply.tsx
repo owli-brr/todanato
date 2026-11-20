@@ -9,15 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Field, FormSection, Input, Select } from '@/components/ui/form';
 import { Card, CardContent } from '@/components/ui/misc';
 
-function PublicShell({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
+export function PublicShell({ title, subtitle, children, nav }: { title: string; subtitle?: ReactNode; children: ReactNode; nav?: ReactNode }) {
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <Link to="/apply" className="flex items-center gap-2 font-semibold"><img src="/favicon.svg" alt="" className="size-7" />TODAnaTo</Link>
           <nav className="flex items-center gap-4 text-sm">
-            <Link to="/application-status" className="text-muted-foreground hover:text-foreground">Check status</Link>
-            <Link to="/login" className="text-muted-foreground hover:text-foreground">Staff sign in</Link>
+            {nav ?? <>
+              <Link to="/application-status" className="text-muted-foreground hover:text-foreground">Check status</Link>
+              <Link to="/driver/login" className="text-muted-foreground hover:text-foreground">Driver sign in</Link>
+            </>}
           </nav>
         </div>
       </header>
@@ -176,7 +178,7 @@ export function ApplicationStatusPage() {
 
   const view = result && {
     PENDING: { icon: Clock, tone: 'text-amber-600', title: 'Under review', text: `${result.association ?? 'The TODA'} is still reviewing your application.` },
-    APPROVED: { icon: CheckCircle2, tone: 'text-emerald-600', title: 'Approved', text: `Welcome to ${result.association ?? 'the TODA'}! Visit the TODA office to complete your membership.` },
+    APPROVED: { icon: CheckCircle2, tone: 'text-emerald-600', title: 'Approved', text: `Welcome to ${result.association ?? 'the TODA'}! You can now set up your driver account to see your records online.` },
     REJECTED: { icon: XCircle, tone: 'text-destructive', title: 'Not approved', text: result.reason ? `Reason: ${result.reason}` : 'Contact the TODA office for details.' },
   }[result.status];
 
@@ -200,6 +202,7 @@ export function ApplicationStatusPage() {
               <dt className="text-muted-foreground">Applied</dt><dd>{fmtDate(result.appliedAt)}</dd>
               {result.decidedAt && <><dt className="text-muted-foreground">Decided</dt><dd>{fmtDate(result.decidedAt)}</dd></>}
             </dl>
+            {result.status === 'APPROVED' && <Button asChild className="w-full"><Link to={`/driver/activate?ref=${result.reference}`}>Set up my driver account</Link></Button>}
           </CardContent></Card>
         )}
       </div>

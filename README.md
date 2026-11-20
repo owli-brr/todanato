@@ -60,6 +60,10 @@ Open http://localhost:5173. Demo accounts (password `Toda2026demo`; the login pa
 
 Anyone can apply to join the TODA at `/apply` without an account and check the result at `/application-status` using their reference number and license number. Applications arrive as pending drivers (with the uploaded license, if any) that the TODA's officers approve or reject under **Drivers → Pending applications**. The public endpoints are under `/api/public` and are rate-limited.
 
+### Driver portal
+
+Once approved, a driver sets up their own sign-in at `/driver/activate` (application reference, license number, and the mobile number on file) and then signs in at `/driver/login` with their mobile number. The portal shows their status, membership and dues, assigned tricycle, documents, and reminders for anything expiring within 30 days. Staff can see whether a driver has set up the portal on the driver's profile and can reset it. Demo driver: `09170000001` / `Toda2026demo` (its password can't be changed in demo mode).
+
 ### Tests
 
 With the API running on seeded data: `npm test`. The suite covers sign-in, the single-TODA rules, permission checks, PII masking, the full driver lifecycle (register → approve → upload/verify document → assign tricycle → suspend), privilege-escalation attempts, online driver applications, and audit logging.
