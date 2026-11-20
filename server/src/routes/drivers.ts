@@ -6,7 +6,7 @@ import { ah, HttpError, notFound, optDate, optStr, orderBy, pageArgs, paged, pag
 import { audit, diff } from '../lib/audit';
 import { assertAssociationAccess, assocScope, can, requirePermission } from '../middleware/auth';
 import { nextDriverCode, nextMembershipNo } from '../lib/codes';
-import { removeStored, upload, verifyMagic } from '../lib/uploads';
+import { removeStored, storeUpload, upload } from '../lib/uploads';
 
 export const driversRouter = Router();
 
@@ -331,11 +331,10 @@ driversRouter.post(
   upload.single('file'),
   ah(async (req, res) => {
     const d = await loadScoped(req, req.params.id);
-    if (!req.file) throw new HttpError(400, 'Choose a photo');
-    if (!req.file.mimetype.startsWith('image/')) throw new HttpError(400, 'Profile photo must be an image');
-    verifyMagic(req.file.path, req.file.mimetype);
-    removeStored(d.photoUrl);
-    const updated = await prisma.driver.update({ where: { id: d.id }, data: { photoUrl: req.file.filename } });
+    if (req.file && !req.file.mimetype.startsWith('image/')) throw new HttpError(400, 'Profile photo must be an image');
+    const photoUrl = await storeUpload(req.file, 'Choose a photo');
+    const updated = await prisma.driver.update({ where: { id: d.id }, data: { photoUrl } });
+    await removeStored(d.photoUrl);
     await audit(req, { action: 'UPDATE', entity: 'Driver', entityId: d.id, summary: `Updated profile photo of ${fullName(d)}`, associationId: d.associationId });
     res.json({ photoUrl: updated.photoUrl });
   }),
@@ -353,15 +352,12 @@ driversRouter.post(
   requirePermission('documents.upload'),
   upload.single('file'),
   ah(async (req, res) => {
-    const d = await loadScoped(req, req.params.id).catch((e) => {
-      if (req.file) removeStored(req.file.filename);
-      throw e;
-    });
-    if (!req.file) throw new HttpError(400, 'Choose a file to upload');
-    verifyMagic(req.file.path, req.file.mimetype);
+    const d = await loadScoped(req, req.params.id);
     const body = docBody.parse(req.body);
+    const fileUrl = await storeUpload(req.file);
+    const file = req.file!;
     const doc = await prisma.driverDocument.create({
-      data: { ...body, driverId: d.id, fileUrl: req.file.filename, fileName: req.file.originalname.slice(0, 200), mimeType: req.file.mimetype, sizeBytes: req.file.size },
+      data: { ...body, driverId: d.id, fileUrl, fileName: file.originalname.slice(0, 200), mimeType: file.mimetype, sizeBytes: file.size },
     });
     await audit(req, { action: 'UPLOAD', entity: 'Driver', entityId: d.id, summary: `Uploaded ${body.type.replace(/_/g, ' ').toLowerCase()} for ${fullName(d)}`, associationId: d.associationId });
     res.status(201).json(doc);
@@ -392,7 +388,7 @@ driversRouter.delete(
     if (!doc) throw notFound('Document');
     if (doc.status === 'VERIFIED') throw new HttpError(409, 'Verified documents cannot be deleted');
     await prisma.driverDocument.delete({ where: { id: doc.id } });
-    removeStored(doc.fileUrl);
+    await removeStored(doc.fileUrl);
     await audit(req, { action: 'DELETE', entity: 'Driver', entityId: d.id, summary: `Deleted ${doc.type.replace(/_/g, ' ').toLowerCase()} (${doc.fileName}) of ${fullName(d)}`, associationId: d.associationId });
     res.json({ ok: true });
   }),

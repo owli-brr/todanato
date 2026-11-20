@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { ah, HttpError } from '../lib/http';
 import { audit } from '../lib/audit';
+import { guardDemoAccount, isDemoAccount } from '../lib/demo';
 import { authenticate, signAccessToken, ACCESS_TTL_SECONDS } from '../middleware/auth';
 
 export const authRouter = Router();
@@ -92,6 +93,10 @@ authRouter.post(
       throw new HttpError(423, `Too many failed attempts. Try again after ${user.lockedUntil.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila' })}.`);
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok && isDemoAccount(user.email)) {
+      await log(false, 'Wrong password');
+      throw new HttpError(401, 'Incorrect email or password');
+    }
     if (!ok) {
       const failed = user.failedLogins + 1;
       await prisma.user.update({
@@ -150,7 +155,7 @@ authRouter.post(
     const { email } = z.object({ email: z.string().trim().toLowerCase().email() }).parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
     let devToken: string | undefined;
-    if (user && user.isActive && !user.deletedAt) {
+    if (user && user.isActive && !user.deletedAt && !isDemoAccount(user.email)) {
       const token = crypto.randomBytes(32).toString('base64url');
       await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 30 * 60000) } });
       // TODO(Phase 2): send through the email/SMS provider configured in Settings.
@@ -170,6 +175,7 @@ authRouter.post(
     const { token, password } = z.object({ token: z.string().min(10), password: passwordSchema }).parse(req.body);
     const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: sha256(token) } });
     if (!row || row.usedAt || row.expiresAt < new Date()) throw new HttpError(400, 'This reset link is invalid or has expired');
+    guardDemoAccount((await prisma.user.findUniqueOrThrow({ where: { id: row.userId } })).email, 'change its password');
     await prisma.$transaction([
       prisma.user.update({ where: { id: row.userId }, data: { passwordHash: await bcrypt.hash(password, 12), mustChangePassword: false, failedLogins: 0, lockedUntil: null } }),
       prisma.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
@@ -192,6 +198,7 @@ authRouter.post(
       .object({ currentPassword: z.string().min(1, 'Enter your current password'), newPassword: passwordSchema })
       .parse(req.body);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.auth!.userId } });
+    guardDemoAccount(user.email, 'change its password');
     if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
       throw new HttpError(400, 'Current password is incorrect', undefined);
     }

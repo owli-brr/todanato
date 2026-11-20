@@ -9,6 +9,7 @@ import { audit, diff } from '../lib/audit';
 import { assertAssociationAccess, assocScope, requirePermission } from '../middleware/auth';
 import { passwordSchema } from './auth';
 import { PERMISSIONS } from '../lib/permissions';
+import { guardDemo, guardDemoAccount } from '../lib/demo';
 
 export const usersRouter = Router();
 
@@ -116,6 +117,7 @@ usersRouter.patch(
     const before = await loadScopedUser(req, req.params.id);
     if (before.role.key === 'SUPER_ADMIN' && req.auth!.roleKey !== 'SUPER_ADMIN') throw forbidden();
     const body = userBody.partial().parse(req.body);
+    if ((body.email && body.email !== before.email) || (body.roleId && body.roleId !== before.roleId)) guardDemoAccount(before.email, 'change its email or role');
     let associationId = body.associationId === undefined ? before.associationId : body.associationId;
     if (body.roleId && body.roleId !== before.roleId) {
       if (before.id === req.auth!.userId) throw forbidden('You cannot change your own role');
@@ -143,6 +145,7 @@ usersRouter.post(
     const { active } = z.object({ active: z.boolean() }).parse(req.body);
     const before = await loadScopedUser(req, req.params.id);
     if (before.id === req.auth!.userId) throw forbidden('You cannot deactivate your own account');
+    guardDemoAccount(before.email, 'deactivate it');
     if (before.role.key === 'SUPER_ADMIN' && req.auth!.roleKey !== 'SUPER_ADMIN') throw forbidden();
     await prisma.$transaction([
       prisma.user.update({ where: { id: before.id }, data: { isActive: active } }),
@@ -159,6 +162,7 @@ usersRouter.post(
   ah(async (req, res) => {
     const before = await loadScopedUser(req, req.params.id);
     if (before.role.key === 'SUPER_ADMIN' && req.auth!.roleKey !== 'SUPER_ADMIN') throw forbidden();
+    guardDemoAccount(before.email, 'reset its password');
     const temp = crypto.randomBytes(9).toString('base64url') + '7a';
     await prisma.$transaction([
       prisma.user.update({ where: { id: before.id }, data: { passwordHash: await bcrypt.hash(temp, 12), mustChangePassword: true, failedLogins: 0, lockedUntil: null } }),
@@ -197,6 +201,7 @@ rolesRouter.put(
   '/:id/permissions',
   requirePermission('roles.manage'),
   ah(async (req, res) => {
+    guardDemo('Editing role permissions');
     const { permissions } = z.object({ permissions: z.array(z.string()) }).parse(req.body);
     const role = await prisma.role.findUnique({ where: { id: req.params.id }, include: { permissions: { include: { permission: true } } } });
     if (!role) throw notFound('Role');

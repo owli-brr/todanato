@@ -1,10 +1,17 @@
+import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { HttpError, forbidden } from '../lib/http';
 import type { PermissionKey } from '../lib/permissions';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret';
+// On a host where JWT_SECRET isn't set (e.g. a fresh Vercel project), derive one from the
+// database URL, which is already a secret. Local development falls back to a fixed value.
+export const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  (process.env.DATABASE_URL && process.env.NODE_ENV === 'production'
+    ? crypto.createHash('sha256').update(`toms-jwt:${process.env.DATABASE_URL}`).digest('hex')
+    : 'dev-only-secret');
 export const ACCESS_TTL_SECONDS = 15 * 60;
 
 export interface AuthContext {
