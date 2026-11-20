@@ -77,7 +77,7 @@ The API serves the built web app from `web/dist`, so one Node process and one Po
 1. In the Vercel project, open **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
 2. Redeploy. The first deploy creates the tables and the demo data in their own Postgres schema, `toms` (set `DB_SCHEMA` to change it), so a database that already holds other tables is left alone.
 
-On Vercel the app runs in **demo mode**: the sign-in page lists the demo accounts, the shared `@toms.ph` accounts can't be locked out, deactivated or have their password changed, and role permissions are read-only. Set `DEMO_MODE=false` to turn this off. `JWT_SECRET` is optional there (one is derived from the database URL); set it to rotate sign-ins.
+On Vercel the app runs in **demo mode**: the shared `@toms.ph` accounts can't be locked out, deactivated or have their password changed, and role permissions are read-only. Set `DEMO_MODE=false` to turn this off. The sign-in page lists the demo accounts only if `SHOW_DEMO_LOGINS=true` is set. `JWT_SECRET` is optional there (one is derived from the database URL); set it to rotate sign-ins.
 
 ## Layout
 
