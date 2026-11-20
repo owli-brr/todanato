@@ -88,12 +88,23 @@ export function LoginPage() {
         </div>
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
-      {import.meta.env.DEV && (
+      {(import.meta.env.DEV || import.meta.env.VITE_DEMO === 'true') && (
         <div className="mt-8 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-          <div className="mb-1 font-medium text-foreground">Demo accounts · password <code>Toda2026demo</code></div>
-          {['superadmin', 'admin', 'president.srtoda', 'secretary.srtoda', 'treasurer.srtoda', 'dispatcher.srtoda', 'auditor'].map((u) => (
-            <button key={u} type="button" className="mr-2 underline-offset-2 hover:underline" onClick={() => { setEmail(`${u}@toms.ph`); setPassword('Toda2026demo'); }}>{u}</button>
-          ))}
+          <div className="mb-2 font-medium text-foreground">Try a demo account · password <code>Toda2026demo</code></div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            {[
+              ['superadmin', 'Super Administrator'],
+              ['admin', 'Organization Admin'],
+              ['president.srtoda', 'Association President'],
+              ['secretary.srtoda', 'Secretary'],
+              ['treasurer.srtoda', 'Treasurer'],
+              ['dispatcher.srtoda', 'Dispatcher'],
+              ['auditor', 'Auditor (read-only)'],
+            ].map(([u, label]) => (
+              <button key={u} type="button" className="text-left underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setEmail(`${u}@toms.ph`); setPassword('Toda2026demo'); }}>{label}</button>
+            ))}
+          </div>
+          <div className="mt-2">Click a role to fill in its login. All data is fictional.</div>
         </div>
       )}
     </AuthShell>

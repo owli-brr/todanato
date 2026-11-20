@@ -68,7 +68,16 @@ With the API running on seeded data: `npm test`. The suite covers sign-in, assoc
 npm run build && NODE_ENV=production npm start
 ```
 
-The API serves the built web app from `web/dist`, so one Node process and one PostgreSQL database are enough. Set a long random `JWT_SECRET`, put it behind HTTPS, back up the database daily, and point `UPLOAD_DIR` at persistent storage (or swap `server/src/lib/uploads.ts` for S3/GCS).
+The API serves the built web app from `web/dist`, so one Node process and one PostgreSQL database are enough. Set a long random `JWT_SECRET`, put it behind HTTPS and back up the database daily. Uploaded files are stored in the database (`StoredFile` table), so no disk is needed.
+
+### Deploying to Vercel
+
+`vercel.json` builds the web app as static files and runs the API as one serverless function (`api/index.js`). On each deploy, `scripts/vercel-build.sh` applies migrations and loads the sample data if the database is empty.
+
+1. In the Vercel project, open **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
+2. Redeploy. The first deploy creates the tables and the demo data.
+
+On Vercel the app runs in **demo mode**: the sign-in page lists the demo accounts, the shared `@toms.ph` accounts can't be locked out, deactivated or have their password changed, and role permissions are read-only. Set `DEMO_MODE=false` to turn this off. `JWT_SECRET` is optional there (one is derived from the database URL); set it to rotate sign-ins.
 
 ## Layout
 

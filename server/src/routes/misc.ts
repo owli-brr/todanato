@@ -1,43 +1,32 @@
 import { Router } from 'express';
-import fs from 'node:fs';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ah, notFound, pageArgs, paged, paginationSchema, optStr } from '../lib/http';
 import { audit, diff } from '../lib/audit';
 import { assocScope, requirePermission } from '../middleware/auth';
-import { resolveStored } from '../lib/uploads';
+import { sendStored } from '../lib/uploads';
 
 // ───── Files: every download goes through a permission + scope check ─────
 
 export const filesRouter = Router();
 
-function send(res: import('express').Response, fileUrl: string, mime: string, name: string) {
-  const full = resolveStored(fileUrl);
-  if (!fs.existsSync(full)) throw notFound('File');
-  res.setHeader('Content-Type', mime);
-  res.setHeader('Content-Disposition', `inline; filename="${name.replace(/[^\w.\- ]/g, '_')}"`);
-  res.setHeader('Cache-Control', 'private, max-age=300');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  fs.createReadStream(full).pipe(res);
-}
-
 filesRouter.get('/driver-photo/:driverId', requirePermission('drivers.read'), ah(async (req, res) => {
   const d = await prisma.driver.findFirst({ where: { AND: [{ id: req.params.driverId }, assocScope(req) as Prisma.DriverWhereInput] } });
   if (!d?.photoUrl) throw notFound('Photo');
-  send(res, d.photoUrl, d.photoUrl.endsWith('.png') ? 'image/png' : d.photoUrl.endsWith('.webp') ? 'image/webp' : 'image/jpeg', 'photo');
+  await sendStored(res, d.photoUrl, 'photo');
 }));
 
 filesRouter.get('/driver-document/:docId', requirePermission('drivers.read'), ah(async (req, res) => {
   const doc = await prisma.driverDocument.findFirst({ where: { id: req.params.docId, driver: assocScope(req) as Prisma.DriverWhereInput } });
   if (!doc) throw notFound('Document');
-  send(res, doc.fileUrl, doc.mimeType, doc.fileName);
+  await sendStored(res, doc.fileUrl, doc.fileName);
 }));
 
 filesRouter.get('/vehicle-document/:docId', requirePermission('vehicles.read'), ah(async (req, res) => {
   const doc = await prisma.vehicleDocument.findFirst({ where: { id: req.params.docId, vehicle: assocScope(req) as Prisma.VehicleWhereInput } });
   if (!doc) throw notFound('Document');
-  send(res, doc.fileUrl, doc.mimeType, doc.fileName);
+  await sendStored(res, doc.fileUrl, doc.fileName);
 }));
 
 // ───── Audit log (read-only) ─────

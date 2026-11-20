@@ -1003,3 +1003,13 @@ model SystemSetting {
 
   @@unique([organizationId, key])
 }
+
+/// Uploaded file contents. Kept in the database so the app runs on hosts
+/// without a permanent disk (e.g. Vercel). Swap for object storage at scale.
+model StoredFile {
+  id        String   @id @default(uuid())
+  mimeType  String
+  sizeBytes Int
+  data      Bytes
+  createdAt DateTime @default(now())
+}

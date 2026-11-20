@@ -6,7 +6,7 @@ import { ah, HttpError, notFound, optDate, optStr, orderBy, pageArgs, paged, pag
 import { audit, diff } from '../lib/audit';
 import { assertAssociationAccess, assocScope, requirePermission } from '../middleware/auth';
 import { nextVehicleCode } from '../lib/codes';
-import { removeStored, upload, verifyMagic } from '../lib/uploads';
+import { removeStored, storeUpload, upload } from '../lib/uploads';
 import { driverFullName } from './drivers';
 
 export const vehiclesRouter = Router();
@@ -254,14 +254,11 @@ vehiclesRouter.post(
   requirePermission('documents.upload'),
   upload.single('file'),
   ah(async (req, res) => {
-    const v = await loadScoped(req, req.params.id).catch((e) => {
-      if (req.file) removeStored(req.file.filename);
-      throw e;
-    });
-    if (!req.file) throw new HttpError(400, 'Choose a file to upload');
-    verifyMagic(req.file.path, req.file.mimetype);
+    const v = await loadScoped(req, req.params.id);
     const body = z.object({ type: z.enum(['OFFICIAL_RECEIPT', 'CERTIFICATE_OF_REGISTRATION', 'FRANCHISE_MTOP', 'INSURANCE', 'INSPECTION_CERTIFICATE', 'DEED_OF_SALE', 'OTHER']), documentNo: optStr(60), expiresAt: optDate }).parse(req.body);
-    const doc = await prisma.vehicleDocument.create({ data: { ...body, vehicleId: v.id, fileUrl: req.file.filename, fileName: req.file.originalname.slice(0, 200), mimeType: req.file.mimetype, sizeBytes: req.file.size } });
+    const fileUrl = await storeUpload(req.file);
+    const file = req.file!;
+    const doc = await prisma.vehicleDocument.create({ data: { ...body, vehicleId: v.id, fileUrl, fileName: file.originalname.slice(0, 200), mimeType: file.mimetype, sizeBytes: file.size } });
     await audit(req, { action: 'UPLOAD', entity: 'Vehicle', entityId: v.id, summary: `Uploaded ${body.type.replace(/_/g, ' ').toLowerCase()} for ${v.plateNumber}`, associationId: v.associationId });
     res.status(201).json(doc);
   }),
@@ -291,7 +288,7 @@ vehiclesRouter.delete(
     if (!doc) throw notFound('Document');
     if (doc.status === 'VERIFIED') throw new HttpError(409, 'Verified documents cannot be deleted');
     await prisma.vehicleDocument.delete({ where: { id: doc.id } });
-    removeStored(doc.fileUrl);
+    await removeStored(doc.fileUrl);
     await audit(req, { action: 'DELETE', entity: 'Vehicle', entityId: v.id, summary: `Deleted ${doc.type.replace(/_/g, ' ').toLowerCase()} of ${v.plateNumber}`, associationId: v.associationId });
     res.json({ ok: true });
   }),
