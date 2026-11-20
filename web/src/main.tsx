@@ -10,6 +10,7 @@ import { Layout } from '@/components/Layout';
 import { Spinner, EmptyState } from '@/components/ui/misc';
 import { ForcedPasswordChange, ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/pages/auth';
 import { ApplicationStatusPage, ApplyPage } from '@/pages/apply';
+import { DriverActivatePage, DriverLoginPage, DriverPortalPage } from '@/pages/driver-portal';
 import { ShieldOff } from 'lucide-react';
 import { useToda } from '@/components/shared';
 
@@ -76,6 +77,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
             <Route path="/apply" element={<ApplyPage />} />
             <Route path="/application-status" element={<ApplicationStatusPage />} />
+            <Route path="/driver" element={<DriverPortalPage />} />
+            <Route path="/driver/login" element={<DriverLoginPage />} />
+            <Route path="/driver/activate" element={<DriverActivatePage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<RequireAuth><Layout /></RequireAuth>}>

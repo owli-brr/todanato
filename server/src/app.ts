@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import swaggerUi from 'swagger-ui-express';
 import { authRouter } from './routes/auth';
 import { publicRouter } from './routes/public';
+import { driverPortalRouter } from './routes/driver';
 import { usersRouter, rolesRouter } from './routes/users';
 import { associationsRouter } from './routes/associations';
 import { driversRouter } from './routes/drivers';
@@ -36,6 +37,7 @@ export function createApp() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/public', publicRouter);
+  app.use('/api/driver', driverPortalRouter);
   // Everything below requires a signed-in admin user.
   app.use('/api', authenticate);
   app.use('/api/dashboard', dashboardRouter);

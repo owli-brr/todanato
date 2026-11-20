@@ -94,6 +94,8 @@ export function LoginPage() {
           <Link to="/apply" className="font-medium text-primary hover:underline">Apply as a driver</Link>
           {' · '}
           <Link to="/application-status" className="text-primary hover:underline">Check your application</Link>
+          {' · '}
+          <Link to="/driver/login" className="text-primary hover:underline">Driver portal</Link>
         </div>
       </div>
       {(import.meta.env.DEV || import.meta.env.VITE_DEMO === 'true') && (

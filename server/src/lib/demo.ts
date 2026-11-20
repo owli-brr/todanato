@@ -14,3 +14,7 @@ export function guardDemoAccount(email: string, what: string) {
 export function guardDemo(what: string) {
   if (DEMO_MODE) throw new HttpError(403, `${what} is turned off in the public demo.`);
 }
+
+/** The shared demo driver-portal login (seeded); protected like the staff demo accounts. */
+export const DEMO_DRIVER_PHONE = '09170000001';
+export const isDemoDriver = (phone: string) => DEMO_MODE && phone === DEMO_DRIVER_PHONE;

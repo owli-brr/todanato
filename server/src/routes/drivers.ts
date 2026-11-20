@@ -194,6 +194,7 @@ driversRouter.get(
         association: { select: { id: true, name: true, code: true, acronym: true, barangay: true, city: true } },
         documents: { orderBy: { uploadedAt: 'desc' }, include: { verifiedBy: { select: { fullName: true } } } },
         memberships: { orderBy: { appliedAt: 'desc' }, include: { association: { select: { name: true, code: true } } } },
+        mobileAccount: { select: { phone: true, lastLoginAt: true, createdAt: true, lockedUntil: true } },
         vehicleAssignments: {
           orderBy: { assignedAt: 'desc' },
           include: { vehicle: { select: { id: true, vehicleCode: true, plateNumber: true, franchiseNumber: true, make: true, model: true, color: true, status: true, registrationExpiry: true, insuranceExpiry: true, inspectionStatus: true, ownerName: true } } },
@@ -211,7 +212,8 @@ driversRouter.get(
     ]);
     const completed = rideStats.find((r) => r.status === 'COMPLETED');
     res.json({
-      ...maskPII(req, d),
+      ...maskPII(req, { ...d, mobileAccount: undefined }),
+      portal: d.mobileAccount ? { active: true, since: d.mobileAccount.createdAt, lastLoginAt: d.mobileAccount.lastLoginAt, locked: !!d.mobileAccount.lockedUntil && d.mobileAccount.lockedUntil > new Date() } : { active: false },
       fullName: fullName(d),
       currentVehicle: d.vehicleAssignments.find((a) => !a.unassignedAt)?.vehicle ?? null,
       payments,
@@ -374,6 +376,18 @@ driversRouter.delete(
     await prisma.driverDocument.delete({ where: { id: doc.id } });
     await removeStored(doc.fileUrl);
     await audit(req, { action: 'DELETE', entity: 'Driver', entityId: d.id, summary: `Deleted ${doc.type.replace(/_/g, ' ').toLowerCase()} (${doc.fileName}) of ${fullName(d)}`, associationId: d.associationId });
+    res.json({ ok: true });
+  }),
+);
+
+driversRouter.delete(
+  '/:id/portal-account',
+  requirePermission('drivers.update'),
+  ah(async (req, res) => {
+    const d = await loadScoped(req, req.params.id);
+    const r = await prisma.mobileAccount.deleteMany({ where: { driverId: d.id } });
+    if (!r.count) throw notFound('Portal account');
+    await audit(req, { action: 'UPDATE', entity: 'Driver', entityId: d.id, summary: `Reset the driver portal account of ${fullName(d)} (they can set it up again)`, associationId: d.associationId });
     res.json({ ok: true });
   }),
 );

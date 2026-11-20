@@ -715,6 +715,10 @@ model MobileAccount {
   driver       Driver?    @relation(fields: [driverId], references: [id])
   passengerId  String?    @unique
   passenger    Passenger? @relation(fields: [passengerId], references: [id])
+  failedLogins Int        @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  tokenVersion Int        @default(0) // bump to sign the account out everywhere
   createdAt    DateTime   @default(now())
 }
 
