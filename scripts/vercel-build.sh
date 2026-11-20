@@ -22,5 +22,6 @@ DATABASE_URL="$DIRECT_URL" npx tsx prisma/seed.ts --if-empty
 npm run build
 
 cd ../web
-if [ "${DEMO_MODE:-true}" != "false" ]; then export VITE_DEMO=true; fi
+# The sign-in page lists the demo accounts only when SHOW_DEMO_LOGINS=true is set in Vercel.
+if [ "${SHOW_DEMO_LOGINS:-false}" = "true" ]; then export VITE_DEMO=true; fi
 npm run build
