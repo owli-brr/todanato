@@ -2,16 +2,14 @@ import { useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { useAction, useForm } from '@/lib/hooks';
 import { toInputDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Field, FormSection, Input, Select } from '@/components/ui/form';
 import { Card, CardContent, ErrorState, PageHeader, Skeleton } from '@/components/ui/misc';
-import { AssociationSelect } from '@/components/shared';
 
 const empty = {
-  plateNumber: '', franchiseNumber: '', franchiseExpiry: '', bodyNumber: '', associationId: '',
+  plateNumber: '', franchiseNumber: '', franchiseExpiry: '', bodyNumber: '',
   ownerName: '', ownerContact: '', ownerAddress: '',
   make: '', model: '', year: '', color: '', engineNumber: '', chassisNumber: '',
   orNumber: '', crNumber: '', registrationExpiry: '', insuranceProvider: '', insurancePolicyNo: '', insuranceExpiry: '',
@@ -23,8 +21,7 @@ export default function VehicleForm() {
   const { id } = useParams();
   const editing = !!id;
   const nav = useNavigate();
-  const { user } = useAuth();
-  const f = useForm({ ...empty, associationId: user?.association?.id ?? '' });
+  const f = useForm(empty);
   const existing = useQuery({ queryKey: ['vehicle', id], queryFn: () => api.get<Record<string, unknown>>(`/vehicles/${id}`), enabled: editing });
   useEffect(() => {
     const v = existing.data;
@@ -38,7 +35,7 @@ export default function VehicleForm() {
 
   const save = useAction(
     (b: typeof empty) => {
-      const payload: Record<string, unknown> = { ...b, associationId: b.associationId || null, year: b.year || null };
+      const payload: Record<string, unknown> = { ...b, year: b.year || null };
       for (const k of DATES) payload[k] = b[k] || null;
       return editing ? api.patch<{ id: string }>(`/vehicles/${id}`, payload) : api.post<{ id: string }>('/vehicles', payload);
     },
@@ -58,9 +55,6 @@ export default function VehicleForm() {
             <Field label="Body number" name="bodyNumber" error={e.bodyNumber}><Input {...f.bind('bodyNumber')} /></Field>
             <Field label="Franchise / MTOP no." name="franchiseNumber" error={e.franchiseNumber}><Input {...f.bind('franchiseNumber')} /></Field>
             <Field label="Franchise expiry" name="franchiseExpiry" error={e.franchiseExpiry}><Input type="date" {...f.bind('franchiseExpiry')} /></Field>
-            <Field label="Association" name="associationId" error={e.associationId}>
-              {user?.role.scope === 'ASSOCIATION' ? <Input value={user.association?.name ?? ''} disabled /> : <AssociationSelect id="associationId" value={f.values.associationId} onChange={(v) => f.set('associationId', v)} allLabel="— Not assigned —" />}
-            </Field>
           </FormSection>
           <FormSection title="Vehicle details">
             <Field label="Make" name="make" required error={e.make}><Input {...f.bind('make')} placeholder="Honda, Kawasaki…" list="makes" /></Field>

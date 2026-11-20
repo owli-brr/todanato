@@ -12,7 +12,7 @@ import { Field, Input, Select } from '@/components/ui/form';
 import { Avatar, Badge, Card, CardContent, CardHeader, CardTitle, ErrorState, PageHeader, Skeleton, StatusBadge } from '@/components/ui/misc';
 import { DataTable, Pagination, type Column } from '@/components/ui/table';
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AssociationSelect, SearchBox, Toolbar } from '@/components/shared';
+import { SearchBox, Toolbar } from '@/components/shared';
 
 interface Role { id: string; key: string; name: string; description: string | null; scope: string; userCount: number; permissions: string[] }
 interface UserRow { id: string; email: string; fullName: string; phone: string | null; isActive: boolean; lastLoginAt: string | null; lockedUntil: string | null; role: { id: string; key: string; name: string; scope: string }; association: { id: string; name: string; code: string } | null }
@@ -35,10 +35,10 @@ function TempPassword({ value, onClose }: { value: string | null; onClose: () =>
 function UserDialog({ user, open, onOpenChange, onSaved }: { user: UserRow | null; open: boolean; onOpenChange: (o: boolean) => void; onSaved: (temp?: string) => void }) {
   const { data: roles } = useRoles();
   const { user: me } = useAuth();
-  const f = useForm({ fullName: '', email: '', phone: '', roleId: '', associationId: '' });
+  const f = useForm({ fullName: '', email: '', phone: '', roleId: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) f.setValues({ fullName: user?.fullName ?? '', email: user?.email ?? '', phone: user?.phone ?? '', roleId: user?.role.id ?? '', associationId: user?.association?.id ?? (me?.role.scope === 'ASSOCIATION' ? me.association?.id ?? '' : '') });
+    if (open) f.setValues({ fullName: user?.fullName ?? '', email: user?.email ?? '', phone: user?.phone ?? '', roleId: user?.role.id ?? '' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user]);
   const role = roles?.find((r) => r.id === f.values.roleId);
@@ -47,7 +47,7 @@ function UserDialog({ user, open, onOpenChange, onSaved }: { user: UserRow | nul
       footer={<><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button loading={busy} onClick={async () => {
         setBusy(true);
         try {
-          const body = { ...f.values, phone: f.values.phone || null, associationId: f.values.associationId || null };
+          const body = { ...f.values, phone: f.values.phone || null };
           if (user) { await api.patch(`/users/${user.id}`, body); toast.success('User updated'); onSaved(); }
           else { const r = await api.post<{ temporaryPassword?: string }>('/users', body); toast.success('User created'); onSaved(r.temporaryPassword); }
           onOpenChange(false);
@@ -64,11 +64,6 @@ function UserDialog({ user, open, onOpenChange, onSaved }: { user: UserRow | nul
           <Select {...f.bind('roleId')} disabled={user?.id === me?.id}><option value="">Choose a role…</option>{roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>
         </Field>
         {role?.description && <p className="-mt-2 text-xs text-muted-foreground">{role.description}</p>}
-        {role?.scope === 'ASSOCIATION' && (
-          <Field label="Association" name="associationId" required error={f.errors.associationId} hint="This user will only see this association's records.">
-            {me?.role.scope === 'ASSOCIATION' ? <Input value={me.association?.name ?? ''} disabled /> : <AssociationSelect id="associationId" value={f.values.associationId} onChange={(v) => f.set('associationId', v)} allLabel="Choose…" invalid={!!f.errors.associationId} />}
-          </Field>
-        )}
       </div>
     </Dialog>
   );
@@ -80,7 +75,7 @@ function UserDetailDialog({ id, onClose }: { id: string | null; onClose: () => v
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()} title={data?.fullName ?? 'User'} description={data?.email} className="max-w-2xl">
       {!data ? <Skeleton className="h-48" /> : (
         <div className="space-y-5">
-          <div className="flex flex-wrap gap-2 text-sm"><Badge tone="blue">{data.role.name}</Badge>{data.association && <Badge>{data.association.name}</Badge>}<StatusBadge status={data.isActive ? 'ACTIVE' : 'INACTIVE'} /></div>
+          <div className="flex flex-wrap gap-2 text-sm"><Badge tone="blue">{data.role.name}</Badge><StatusBadge status={data.isActive ? 'ACTIVE' : 'INACTIVE'} /></div>
           {data.sessions.length > 0 && (
             <div><h4 className="mb-2 text-sm font-semibold">Active sessions</h4>
               <ul className="divide-y rounded-md border text-sm">{data.sessions.map((s) => <li key={s.id} className="px-3 py-2"><div className="truncate">{s.userAgent ?? 'Unknown device'}</div><div className="text-xs text-muted-foreground">{s.ipAddress} · last active {relTime(s.lastUsedAt)}</div></li>)}</ul>
@@ -117,7 +112,7 @@ function UsersTab() {
 
   const columns: Column<UserRow>[] = [
     { key: 'fullName', header: 'User', sortable: true, cell: (u) => <div className="flex items-center gap-3"><Avatar name={u.fullName} /><div className="min-w-0"><div className="truncate font-medium">{u.fullName}{u.id === me?.id && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}</div><div className="truncate text-xs text-muted-foreground">{u.email}</div></div></div> },
-    { key: 'role', header: 'Role', cell: (u) => <div><div>{u.role.name}</div>{u.association && <div className="text-xs text-muted-foreground">{u.association.name}</div>}</div> },
+    { key: 'role', header: 'Role', cell: (u) => <div><div>{u.role.name}</div></div> },
     { key: 'lastLoginAt', header: 'Last sign-in', sortable: true, hideBelow: 'md', cell: (u) => <span className="text-muted-foreground">{relTime(u.lastLoginAt)}</span> },
     { key: 'status', header: 'Status', cell: (u) => <div className="flex gap-1"><StatusBadge status={u.isActive ? 'ACTIVE' : 'INACTIVE'} />{u.lockedUntil && new Date(u.lockedUntil) > new Date() && <Badge tone="red">Locked</Badge>}</div> },
     {
@@ -190,7 +185,7 @@ function RolesTab() {
   if (!roles || !catalog || !role) return <Skeleton className="h-96" />;
   const editable = can('roles.manage') && role.key !== 'SUPER_ADMIN';
   const dirty = role.permissions.length !== sel.size || role.permissions.some((p) => !sel.has(p));
-  const scopeText = { GLOBAL: 'All organizations', ORGANIZATION: 'All associations in the organization', ASSOCIATION: 'Only their assigned association' }[role.scope];
+  const scopeText = role.key === 'SUPER_ADMIN' ? 'Full system access' : 'The TODA’s records, limited by the permissions below';
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
       <Card className="h-fit p-2">
@@ -233,7 +228,7 @@ function RolesTab() {
 export default function UsersPage() {
   return (
     <div>
-      <PageHeader title="Users & roles" description="Accounts that can sign in to TOMS, and what each role may do." />
+      <PageHeader title="Users & roles" description="Accounts that can sign in to TODAnaTo, and what each role may do." />
       <Tabs defaultValue="users">
         <TabsList><TabsTrigger value="users">Users</TabsTrigger><TabsTrigger value="roles"><ShieldCheck className="size-4" /> Roles & permissions</TabsTrigger></TabsList>
         <TabsContent value="users"><UsersTab /></TabsContent>

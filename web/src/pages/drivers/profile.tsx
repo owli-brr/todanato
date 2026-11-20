@@ -66,7 +66,7 @@ export default function DriverProfile() {
   };
 
   const confirmText: Record<string, [string, string, string, boolean]> = {
-    approve: ['Approve this application?', `${d.fullName} becomes an active driver and member of ${d.association?.name ?? 'the association'}. Check that the documents are verified first.`, 'Approve', false],
+    approve: ['Approve this application?', `${d.fullName} becomes an active driver and member of ${d.association?.name ?? 'the TODA'}. Check that the documents are verified first.`, 'Approve', false],
     reject: ['Reject this application?', 'The driver will be marked inactive and the membership rejected.', 'Reject application', true],
     ACTIVE: ['Activate driver?', `${d.fullName} will be able to operate and receive bookings.`, 'Activate', false],
     INACTIVE: ['Deactivate driver?', `${d.fullName} will no longer be able to operate or receive bookings.`, 'Deactivate', true],
@@ -103,7 +103,7 @@ export default function DriverProfile() {
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1"><IdCard className="size-4" />{d.driverCode}{membership && ` · ${membership.membershipNo}`}</span>
               <span className="inline-flex items-center gap-1"><Phone className="size-4" />{d.contactNumber}</span>
-              {d.association && <Link to={`/associations/${d.association.id}`} className="inline-flex items-center gap-1 hover:text-primary"><MapPin className="size-4" />{d.association.name}</Link>}
+              {d.association && <Link to="/toda" className="inline-flex items-center gap-1 hover:text-primary"><MapPin className="size-4" />{d.association.name}</Link>}
               {d.currentVehicle && <Link to={`/vehicles/${d.currentVehicle.id}`} className="inline-flex items-center gap-1 hover:text-primary"><Bike className="size-4" />{d.currentVehicle.plateNumber}</Link>}
             </div>
             {d.status === 'SUSPENDED' && d.suspensionReason && <p className="mt-2 text-sm text-destructive">Suspended{d.suspendedUntil && ` until ${fmtDate(d.suspendedUntil)}`}: {d.suspensionReason}</p>}
@@ -224,9 +224,9 @@ export default function DriverProfile() {
         <TabsContent value="membership">
           <Card>
             <CardContent className="px-0 pb-0">
-              {d.memberships.length === 0 ? <EmptyState title="Not a member of any association" /> : (
+              {d.memberships.length === 0 ? <EmptyState title="No membership record yet" /> : (
                 <div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="px-4 py-2.5 font-medium">Membership no.</th><th className="px-4 py-2.5 font-medium">Association</th><th className="px-4 py-2.5 font-medium">Type</th><th className="px-4 py-2.5 font-medium">Period</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
+                  <thead><tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="px-4 py-2.5 font-medium">Membership no.</th><th className="px-4 py-2.5 font-medium">TODA</th><th className="px-4 py-2.5 font-medium">Type</th><th className="px-4 py-2.5 font-medium">Period</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
                   <tbody>{d.memberships.map((m) => (
                     <tr key={m.id} className="border-b last:border-0">
                       <td className="px-4 py-3 font-mono">{m.membershipNo}</td>

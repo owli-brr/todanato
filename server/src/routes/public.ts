@@ -8,6 +8,7 @@ import { audit } from '../lib/audit';
 import { nextDriverCode, nextMembershipNo } from '../lib/codes';
 import { storeUpload, upload } from '../lib/uploads';
 import { driverBody } from './drivers';
+import { theToda } from '../lib/toda';
 
 // Public, unauthenticated endpoints: driver applicants apply online and check their status.
 // Applications land as PENDING drivers that association officers review in Drivers.
@@ -17,16 +18,12 @@ export const publicRouter = Router();
 const applyLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many applications from this connection. Try again in an hour.' } });
 const statusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many lookups. Try again in a few minutes.' } });
 
-publicRouter.get('/associations', ah(async (_req, res) => {
-  res.json(await prisma.association.findMany({
-    where: { status: 'ACTIVE', deletedAt: null },
-    select: { id: true, name: true, acronym: true, barangay: true, city: true },
-    orderBy: { name: 'asc' },
-  }));
+publicRouter.get('/toda', ah(async (_req, res) => {
+  const t = await theToda();
+  res.json({ name: t.name, acronym: t.acronym, barangay: t.barangay, city: t.city, province: t.province, contactNumber: t.contactNumber, email: t.email });
 }));
 
 const applicationBody = driverBody.omit({ memberType: true }).extend({
-  associationId: z.string({ required_error: 'Choose the TODA you want to join' }).uuid('Choose the TODA you want to join'),
   memberType: z.enum(['DRIVER', 'DRIVER_OPERATOR']).default('DRIVER'),
   consent: z.literal('true', { errorMap: () => ({ message: 'You need to agree before applying' }) }),
   website: z.string().max(0).optional(), // honeypot: real people never fill this hidden field
@@ -38,8 +35,8 @@ publicRouter.post(
   upload.single('license'),
   ah(async (req, res) => {
     const { consent: _c, website: _w, memberType, ...body } = applicationBody.parse(req.body);
-    const assoc = await prisma.association.findFirst({ where: { id: body.associationId, status: 'ACTIVE', deletedAt: null } });
-    if (!assoc) throw new HttpError(400, 'Choose the TODA you want to join', { fields: { associationId: 'Choose a TODA' } });
+    const assoc = await theToda();
+    if (assoc.status !== 'ACTIVE') throw new HttpError(409, `${assoc.name} is not accepting applications right now`);
     if (req.file && !['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(req.file.mimetype)) throw new HttpError(400, 'Upload a photo or PDF of your license');
     if (await prisma.driver.findUnique({ where: { licenseNumber: body.licenseNumber } })) {
       throw new HttpError(409, 'An application with this license number already exists. Check its status instead.', { fields: { licenseNumber: 'Already applied' } });
@@ -47,7 +44,7 @@ publicRouter.post(
     const fileUrl = req.file ? await storeUpload(req.file) : null;
 
     const driver = await prisma.$transaction(async (tx) => {
-      const d = await tx.driver.create({ data: { ...body, driverCode: await nextDriverCode() } });
+      const d = await tx.driver.create({ data: { ...body, associationId: assoc.id, driverCode: await nextDriverCode() } });
       await tx.associationMembership.create({
         data: { driverId: d.id, associationId: assoc.id, membershipNo: await nextMembershipNo(assoc.code), memberType, remarks: 'Applied online' },
       });

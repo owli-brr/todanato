@@ -16,6 +16,12 @@ export function useAssociations() {
   return useQuery({ queryKey: ['associations', 'options'], queryFn: () => api.get<AssocOption[]>('/associations?all=true'), staleTime: 5 * 60_000 });
 }
 
+/** TODAnaTo serves one TODA; this is it. */
+export function useToda() {
+  const q = useAssociations();
+  return { ...q, data: q.data?.[0] };
+}
+
 export function AssociationSelect({ value, onChange, allLabel = 'All associations', id, required, invalid }: { value: string; onChange: (v: string) => void; allLabel?: string | null; id?: string; required?: boolean; invalid?: boolean }) {
   const { data } = useAssociations();
   return (

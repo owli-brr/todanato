@@ -74,20 +74,6 @@ associationsRouter.get(
   }),
 );
 
-associationsRouter.post(
-  '/',
-  requirePermission('associations.create'),
-  ah(async (req, res) => {
-    const body = assocBody.parse(req.body);
-    const organizationId = req.auth!.scope === 'GLOBAL' ? body.organizationId ?? req.auth!.organizationId : req.auth!.organizationId;
-    if (!organizationId) throw new HttpError(400, 'Choose an organization');
-    const { organizationId: _o, ...data } = body;
-    const a = await prisma.association.create({ data: { ...data, organizationId, code: await nextAssociationCode() } });
-    await audit(req, { action: 'CREATE', entity: 'Association', entityId: a.id, summary: `Registered association ${a.name} (${a.code})`, after: a, associationId: a.id });
-    res.status(201).json(a);
-  }),
-);
-
 associationsRouter.get(
   '/:id',
   requirePermission('associations.read'),
@@ -121,19 +107,6 @@ associationsRouter.patch(
     const d = diff(before, after);
     await audit(req, { action: 'UPDATE', entity: 'Association', entityId: after.id, summary: `Updated ${after.name} (${d.changed.join(', ') || 'no changes'})`, before: d.before, after: d.after, associationId: after.id });
     res.json(after);
-  }),
-);
-
-associationsRouter.delete(
-  '/:id',
-  requirePermission('associations.delete'),
-  ah(async (req, res) => {
-    const a = await loadScoped(req, req.params.id);
-    const active = await prisma.driver.count({ where: { associationId: a.id, status: 'ACTIVE', deletedAt: null } });
-    if (active > 0) throw new HttpError(409, `This association still has ${active} active driver(s). Move or deactivate them first.`);
-    await prisma.association.update({ where: { id: a.id }, data: { deletedAt: new Date(), status: 'INACTIVE' } });
-    await audit(req, { action: 'DELETE', entity: 'Association', entityId: a.id, summary: `Archived association ${a.name}`, associationId: a.id });
-    res.json({ ok: true });
   }),
 );
 

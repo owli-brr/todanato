@@ -1,45 +1,14 @@
-import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { useAction, useForm } from '@/lib/hooks';
 import { fmtDateTime, relTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/form';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, DescList, PageHeader, Skeleton } from '@/components/ui/misc';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChangePasswordForm } from './auth';
 
-interface Org { id: string; name: string; shortName: string | null; address: string | null; contactEmail: string | null; contactPhone: string | null }
-
-function OrgTab() {
-  const { can } = useAuth();
-  const { data } = useQuery({ queryKey: ['orgs'], queryFn: () => api.get<Org[]>('/organizations') });
-  const org = data?.[0];
-  const f = useForm({ name: '', shortName: '', address: '', contactEmail: '', contactPhone: '' });
-  useEffect(() => { if (org) f.setValues({ name: org.name, shortName: org.shortName ?? '', address: org.address ?? '', contactEmail: org.contactEmail ?? '', contactPhone: org.contactPhone ?? '' }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [org]);
-  const save = useAction((v: typeof f.values) => api.patch(`/organizations/${org!.id}`, v), { success: 'Organization profile saved', invalidate: [['orgs']], onFieldErrors: f.setErrors });
-  if (!org) return <Skeleton className="h-64" />;
-  const editable = can('settings.manage');
-  return (
-    <Card className="max-w-3xl">
-      <CardHeader><CardTitle>Organization profile</CardTitle><CardDescription>Shown on receipts and reports.</CardDescription></CardHeader>
-      <CardContent>
-        <form className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save.mutate(f.values); }}>
-          <Field label="Name" name="name" className="sm:col-span-2" error={f.errors.name}><Input {...f.bind('name')} disabled={!editable} /></Field>
-          <Field label="Short name" name="shortName"><Input {...f.bind('shortName')} disabled={!editable} /></Field>
-          <Field label="Contact number" name="contactPhone"><Input {...f.bind('contactPhone')} disabled={!editable} /></Field>
-          <Field label="Email" name="contactEmail"><Input {...f.bind('contactEmail')} disabled={!editable} /></Field>
-          <Field label="Address" name="address" className="sm:col-span-2"><Input {...f.bind('address')} disabled={!editable} /></Field>
-          {editable && <div className="sm:col-span-2"><Button type="submit" loading={save.isPending}>Save</Button></div>}
-        </form>
-        <p className="mt-6 text-xs text-muted-foreground">Logo, fee schedules, ride commission and notification settings arrive with Phases 2–3.</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 function SecurityTab() {
   const sessions = useQuery({ queryKey: ['my-sessions'], queryFn: () => api.get<{ id: string; userAgent: string | null; ipAddress: string | null; lastUsedAt: string; createdAt: string; current: boolean }[]>('/auth/sessions') });
@@ -78,10 +47,10 @@ export default function SettingsPage() {
     <div>
       <PageHeader title="Settings" />
       <Tabs value={tab} onValueChange={(t) => setSp({ tab: t }, { replace: true })}>
-        <TabsList><TabsTrigger value="account">My account</TabsTrigger><TabsTrigger value="security">Password & sessions</TabsTrigger><TabsTrigger value="organization">Organization</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="account">My account</TabsTrigger><TabsTrigger value="security">Password & sessions</TabsTrigger></TabsList>
         <TabsContent value="account">
           <Card className="max-w-3xl"><CardHeader><CardTitle>My account</CardTitle><CardDescription>Ask an administrator to change your name, email or role.</CardDescription></CardHeader><CardContent>
-            <DescList items={[['Name', user?.fullName], ['Email', user?.email], ['Mobile', user?.phone], ['Role', user?.role.name], ['Association', user?.association?.name ?? 'All (not limited)'], ['Organization', user?.organization?.name]]} />
+            <DescList items={[['Name', user?.fullName], ['Email', user?.email], ['Mobile', user?.phone], ['Role', user?.role.name], ['TODA', user?.association?.name ?? 'Full access']]} />
             <div className="mt-6">
               <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">What you can do</div>
               <div className="flex flex-wrap gap-1">{user?.permissions.map((p) => <Badge key={p} tone="gray">{p}</Badge>)}</div>
@@ -89,7 +58,6 @@ export default function SettingsPage() {
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="security"><SecurityTab /></TabsContent>
-        <TabsContent value="organization"><OrgTab /></TabsContent>
       </Tabs>
     </div>
   );

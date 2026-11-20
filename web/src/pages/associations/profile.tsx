@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Edit, Archive, UserPlus, MoreHorizontal, Users, Bike } from 'lucide-react';
+import { Edit, UserPlus, MoreHorizontal, Users, Bike } from 'lucide-react';
 import { api, qs, type Paged } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useForm } from '@/lib/hooks';
@@ -101,15 +101,13 @@ function MembersTab({ a }: { a: Assoc }) {
   );
 }
 
-export default function AssociationProfile() {
-  const { id } = useParams();
-  const { can, user } = useAuth();
-  const nav = useNavigate();
-  const qc = useQueryClient();
+export default function AssociationProfile({ id: idProp }: { id?: string } = {}) {
+  const params = useParams();
+  const id = idProp ?? params.id;
+  const { can } = useAuth();
   const { data: a, error, refetch } = useQuery({ queryKey: ['association', id], queryFn: () => api.get<Assoc>(`/associations/${id}`) });
   const [officerOpen, setOfficerOpen] = useState(false);
   const [endOfficer, setEndOfficer] = useState<Assoc['officers'][number] | null>(null);
-  const [archive, setArchive] = useState(false);
   if (error) return <ErrorState error={error} onRetry={refetch} />;
   if (!a) return <Skeleton className="h-96" />;
   const totalDrivers = Object.values(a.stats.drivers).reduce((s, n) => s + n, 0);
@@ -120,19 +118,17 @@ export default function AssociationProfile() {
   return (
     <div>
       <PageHeader
-        back={user?.role.scope === 'ASSOCIATION' ? undefined : '/associations'}
         title={<span className="flex flex-wrap items-center gap-2">{a.name} <StatusBadge status={a.status} /></span>}
         description={`${a.code}${a.acronym ? ` · ${a.acronym}` : ''} · Brgy. ${a.barangay}, ${a.city}, ${a.province}`}
         actions={<>
-          {can('associations.update') && <Button variant="outline" asChild><Link to={`/associations/${a.id}/edit`}><Edit /> Edit</Link></Button>}
-          {can('associations.delete') && <Button variant="outline" size="icon" aria-label="Archive association" onClick={() => setArchive(true)}><Archive /></Button>}
+          {can('associations.update') && <Button variant="outline" asChild><Link to="/toda/edit"><Edit /> Edit</Link></Button>}
         </>}
       />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link to={`/drivers?associationId=${a.id}`}><Card className="p-4 hover:border-primary/40"><p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Users className="size-4" />Drivers</p><p className="mt-1 text-2xl font-semibold tabular">{num(totalDrivers)}</p><p className="text-xs text-muted-foreground">{a.stats.drivers.ACTIVE ?? 0} active · {a.stats.drivers.SUSPENDED ?? 0} suspended</p></Card></Link>
-        <Link to={`/vehicles?associationId=${a.id}`}><Card className="p-4 hover:border-primary/40"><p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Bike className="size-4" />Tricycles</p><p className="mt-1 text-2xl font-semibold tabular">{num(totalVehicles)}</p><p className="text-xs text-muted-foreground">{a.stats.vehicles.OPERATIONAL ?? 0} operational</p></Card></Link>
+        <Link to="/drivers"><Card className="p-4 hover:border-primary/40"><p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Users className="size-4" />Drivers</p><p className="mt-1 text-2xl font-semibold tabular">{num(totalDrivers)}</p><p className="text-xs text-muted-foreground">{a.stats.drivers.ACTIVE ?? 0} active · {a.stats.drivers.SUSPENDED ?? 0} suspended</p></Card></Link>
+        <Link to="/vehicles"><Card className="p-4 hover:border-primary/40"><p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Bike className="size-4" />Tricycles</p><p className="mt-1 text-2xl font-semibold tabular">{num(totalVehicles)}</p><p className="text-xs text-muted-foreground">{a.stats.vehicles.OPERATIONAL ?? 0} operational</p></Card></Link>
         <Card className="p-4"><p className="text-sm text-muted-foreground">Active members</p><p className="mt-1 text-2xl font-semibold tabular">{num(a.stats.memberships.ACTIVE ?? 0)}</p><p className="text-xs text-muted-foreground">{a.stats.memberships.PENDING ?? 0} pending</p></Card>
-        <Link to={`/drivers?associationId=${a.id}&application=PENDING`}><Card className="p-4 hover:border-primary/40"><p className="text-sm text-muted-foreground">Pending applications</p><p className="mt-1 text-2xl font-semibold tabular">{num(a.stats.pendingApplications)}</p><p className="text-xs text-muted-foreground">Awaiting approval</p></Card></Link>
+        <Link to="/drivers?application=PENDING"><Card className="p-4 hover:border-primary/40"><p className="text-sm text-muted-foreground">Pending applications</p><p className="mt-1 text-2xl font-semibold tabular">{num(a.stats.pendingApplications)}</p><p className="text-xs text-muted-foreground">Awaiting approval</p></Card></Link>
       </div>
       <Tabs defaultValue="overview">
         <TabsList>
@@ -143,7 +139,7 @@ export default function AssociationProfile() {
         <TabsContent value="overview">
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2"><CardHeader><CardTitle>Profile</CardTitle></CardHeader><CardContent>
-              <DescList items={[['Organization', a.organization?.name], ['Terminal', a.terminalLocation], ['Office address', a.address], ['Contact', a.contactNumber], ['Email', a.email], ['Accreditation no.', a.ltfrbAccreditation], ['Established', fmtDate(a.dateEstablished)]]} />
+              <DescList items={[['Terminal', a.terminalLocation], ['Office address', a.address], ['Contact', a.contactNumber], ['Email', a.email], ['Accreditation no.', a.ltfrbAccreditation], ['Established', fmtDate(a.dateEstablished)]]} />
             </CardContent></Card>
             <Card><CardHeader><CardTitle>Fees</CardTitle></CardHeader><CardContent>
               <DescList cols={1} items={[['Membership fee', peso(a.membershipFee, 2)], ['Monthly dues', peso(a.monthlyDues, 2)], ['Daily contribution', peso(a.dailyContribution, 2)]]} />
@@ -176,8 +172,6 @@ export default function AssociationProfile() {
       <OfficerDialog a={a} open={officerOpen} onOpenChange={setOfficerOpen} onDone={refetch} />
       {endOfficer && <ConfirmDialog open onOpenChange={(o) => !o && setEndOfficer(null)} title="End officer's term?" description={`${endOfficer.name} will no longer be listed as ${label(endOfficer.position)}.`} confirmLabel="End term" tone="destructive"
         onConfirm={async () => { try { await api.post(`/associations/${a.id}/officers/${endOfficer.id}/end`); toast.success('Term ended'); refetch(); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); throw e; } }} />}
-      <ConfirmDialog open={archive} onOpenChange={setArchive} title="Archive this association?" description="Only possible when it has no active drivers. Archived associations are hidden from lists." confirmLabel="Archive" tone="destructive"
-        onConfirm={async () => { try { await api.del(`/associations/${a.id}`); toast.success('Association archived'); qc.invalidateQueries({ queryKey: ['associations'] }); nav('/associations'); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); throw e; } }} />
     </div>
   );
 }

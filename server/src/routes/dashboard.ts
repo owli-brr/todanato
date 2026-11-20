@@ -46,14 +46,14 @@ dashboardRouter.get(
     const ids = await allowedAssociationIds(req);
 
     const [
-      driverByStatus, pendingApps, vehicles, vehiclesByStatus, associations,
+      driverByStatus, pendingApps, vehicles, vehiclesByStatus, members,
       ridesToday, collectionsToday, collectionsMonth, expensesMonth, outstanding, onlineDrivers,
     ] = await Promise.all([
       prisma.driver.groupBy({ by: ['status'], where: dScope, _count: true }),
       prisma.driver.count({ where: { AND: [dScope, { applicationStatus: 'PENDING' }] } }),
       prisma.vehicle.count({ where: { AND: [{ deletedAt: null }, scope as Prisma.VehicleWhereInput] } }),
       prisma.vehicle.groupBy({ by: ['status'], where: { AND: [{ deletedAt: null }, scope as Prisma.VehicleWhereInput] }, _count: true }),
-      prisma.association.count({ where: { deletedAt: null, ...(ids ? { id: { in: ids } } : {}) } }),
+      prisma.associationMembership.count({ where: { status: 'ACTIVE', ...(ids ? { associationId: { in: ids } } : {}) } }),
       prisma.booking.groupBy({ by: ['status'], where: { AND: [scope as Prisma.BookingWhereInput, { requestedAt: { gte: today } }] }, _count: true }),
       finance ? prisma.payment.aggregate({ where: { AND: [scope as Prisma.PaymentWhereInput, { status: 'POSTED', paidAt: { gte: today } }] }, _sum: { amount: true }, _count: true }) : null,
       finance ? prisma.payment.aggregate({ where: { AND: [scope as Prisma.PaymentWhereInput, { status: 'POSTED', paidAt: { gte: monthStart } }] }, _sum: { amount: true } }) : null,
@@ -74,7 +74,7 @@ dashboardRouter.get(
         pendingApplications: pendingApps,
       },
       vehicles: { total: vehicles, byStatus: Object.fromEntries(vehiclesByStatus.map((r) => [r.status, r._count])) },
-      associations,
+      members,
       ridesToday: {
         total: ridesToday.reduce((s, r) => s + r._count, 0),
         pending: rides.PENDING ?? 0, ongoing, completed: rides.COMPLETED ?? 0, cancelled: rides.CANCELLED ?? 0,

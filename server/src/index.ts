@@ -3,5 +3,5 @@ import { createApp } from './app';
 
 const port = Number(process.env.PORT || 4000);
 createApp().listen(port, () => {
-  console.log(`TOMS API listening on http://localhost:${port}  (docs: /api/docs)`);
+  console.log(`TODAnaTo API listening on http://localhost:${port}  (docs: /api/docs)`);
 });

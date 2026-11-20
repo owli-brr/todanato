@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
-/** On Vercel, keep TOMS tables in their own Postgres schema ("toms") so they never clash with other
+/** On Vercel, keep TODAnaTo tables in their own Postgres schema ("toms") so they never clash with other
  * tables already in a shared database. Override with DB_SCHEMA; locally the URL is used as is. */
 export function databaseUrl(url = process.env.DATABASE_URL) {
   const schema = process.env.DB_SCHEMA || (process.env.VERCEL ? 'toms' : '');

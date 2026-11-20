@@ -14,7 +14,7 @@ function PublicShell({ title, subtitle, children }: { title: string; subtitle?: 
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-          <Link to="/apply" className="flex items-center gap-2 font-semibold"><img src="/favicon.svg" alt="" className="size-7" />TOMS</Link>
+          <Link to="/apply" className="flex items-center gap-2 font-semibold"><img src="/favicon.svg" alt="" className="size-7" />TODAnaTo</Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link to="/application-status" className="text-muted-foreground hover:text-foreground">Check status</Link>
             <Link to="/login" className="text-muted-foreground hover:text-foreground">Staff sign in</Link>
@@ -33,10 +33,10 @@ function PublicShell({ title, subtitle, children }: { title: string; subtitle?: 
 const empty = {
   firstName: '', middleName: '', lastName: '', suffix: '', dateOfBirth: '', gender: '', contactNumber: '', email: '',
   address: '', barangay: '', city: '', emergencyName: '', emergencyRelation: '', emergencyPhone: '',
-  licenseNumber: '', licenseType: 'PROFESSIONAL', licenseExpiry: '', associationId: '', memberType: 'DRIVER', website: '',
+  licenseNumber: '', licenseType: 'PROFESSIONAL', licenseExpiry: '', memberType: 'DRIVER', website: '',
 };
 
-type Assoc = { id: string; name: string; acronym: string | null; barangay: string | null; city: string | null };
+type Toda = { name: string; acronym: string | null; barangay: string | null; city: string | null; province: string | null; contactNumber: string | null; email: string | null };
 
 export function ApplyPage() {
   const f = useForm(empty);
@@ -45,7 +45,7 @@ export function ApplyPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ reference: string; association: string } | null>(null);
-  const assocs = useQuery({ queryKey: ['public-associations'], queryFn: () => api.get<Assoc[]>('/public/associations') });
+  const toda = useQuery({ queryKey: ['public-toda'], queryFn: () => api.get<Toda>('/public/toda') });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -75,7 +75,7 @@ export function ApplyPage() {
             <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-emerald-600" />
             <div>
               <p className="font-medium">Thank you, {f.values.firstName}. {done.association} will review your application.</p>
-              <p className="mt-1 text-sm text-muted-foreground">Bring your original license and barangay clearance when the association contacts you.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Bring your original license and barangay clearance when the TODA contacts you.</p>
             </div>
           </div>
           <div className="rounded-md border bg-muted/40 p-4">
@@ -91,17 +91,11 @@ export function ApplyPage() {
 
   const e = f.errors;
   return (
-    <PublicShell title="Apply as a tricycle driver" subtitle="Fill in this form to join a TODA. The association's officers will review your application and contact you.">
+    <PublicShell title="Apply as a tricycle driver" subtitle={`Fill in this form to join ${toda.data?.name ?? 'our TODA'}${toda.data?.barangay ? `, Brgy. ${toda.data.barangay}` : ''}. Our officers will review your application and contact you.`}>
       <form onSubmit={submit} noValidate>
         <Card><CardContent className="pt-6">
           {error && <div role="alert" className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
-          <FormSection title="TODA" description="The association you want to join.">
-            <Field label="Association" name="associationId" required error={e.associationId} className="sm:col-span-2">
-              <Select {...f.bind('associationId')}>
-                <option value="">{assocs.isLoading ? 'Loading…' : 'Choose a TODA'}</option>
-                {assocs.data?.map((a) => <option key={a.id} value={a.id}>{a.name}{a.barangay ? ` · ${a.barangay}` : ''}</option>)}
-              </Select>
-            </Field>
+          <FormSection title="Membership" description="How you will join the TODA.">
             <Field label="I am applying as" name="memberType">
               <Select {...f.bind('memberType')}><option value="DRIVER">Driver</option><option value="DRIVER_OPERATOR">Driver and tricycle owner</option></Select>
             </Field>
@@ -142,7 +136,7 @@ export function ApplyPage() {
           <div aria-hidden="true" className="absolute -left-[9999px] h-0 overflow-hidden"><label>Website<input tabIndex={-1} autoComplete="off" {...f.bind('website')} /></label></div>
           <label className="flex items-start gap-3 border-t pt-6 text-sm">
             <input type="checkbox" checked={consent} onChange={(ev) => setConsent(ev.target.checked)} className="mt-0.5 size-4 rounded border-input" />
-            <span>I agree that the association may collect and use my personal information to process this application, under the Data Privacy Act of 2012 (RA 10173). The details I gave are true.</span>
+            <span>I agree that the TODA may collect and use my personal information to process this application, under the Data Privacy Act of 2012 (RA 10173). The details I gave are true.</span>
           </label>
         </CardContent></Card>
         <div className="mt-4 flex justify-end">
@@ -181,9 +175,9 @@ export function ApplicationStatusPage() {
   };
 
   const view = result && {
-    PENDING: { icon: Clock, tone: 'text-amber-600', title: 'Under review', text: `${result.association ?? 'The association'} is still reviewing your application.` },
-    APPROVED: { icon: CheckCircle2, tone: 'text-emerald-600', title: 'Approved', text: `Welcome to ${result.association ?? 'the association'}! Visit the TODA office to complete your membership.` },
-    REJECTED: { icon: XCircle, tone: 'text-destructive', title: 'Not approved', text: result.reason ? `Reason: ${result.reason}` : 'Contact the association for details.' },
+    PENDING: { icon: Clock, tone: 'text-amber-600', title: 'Under review', text: `${result.association ?? 'The TODA'} is still reviewing your application.` },
+    APPROVED: { icon: CheckCircle2, tone: 'text-emerald-600', title: 'Approved', text: `Welcome to ${result.association ?? 'the TODA'}! Visit the TODA office to complete your membership.` },
+    REJECTED: { icon: XCircle, tone: 'text-destructive', title: 'Not approved', text: result.reason ? `Reason: ${result.reason}` : 'Contact the TODA office for details.' },
   }[result.status];
 
   return (

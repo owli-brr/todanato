@@ -11,6 +11,7 @@ import { Spinner, EmptyState } from '@/components/ui/misc';
 import { ForcedPasswordChange, ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/pages/auth';
 import { ApplicationStatusPage, ApplyPage } from '@/pages/apply';
 import { ShieldOff } from 'lucide-react';
+import { useToda } from '@/components/shared';
 
 const Dashboard = lazy(() => import('@/pages/dashboard'));
 const DriversList = lazy(() => import('@/pages/drivers/list'));
@@ -19,7 +20,6 @@ const DriverProfile = lazy(() => import('@/pages/drivers/profile'));
 const VehiclesList = lazy(() => import('@/pages/vehicles/list'));
 const VehicleForm = lazy(() => import('@/pages/vehicles/form'));
 const VehicleProfile = lazy(() => import('@/pages/vehicles/profile'));
-const AssociationsList = lazy(() => import('@/pages/associations/list'));
 const AssociationForm = lazy(() => import('@/pages/associations/form'));
 const AssociationProfile = lazy(() => import('@/pages/associations/profile'));
 const UsersPage = lazy(() => import('@/pages/users'));
@@ -59,6 +59,14 @@ function PublicOnly({ children }: { children: ReactNode }) {
   return user ? <Navigate to="/" replace /> : <>{children}</>;
 }
 
+/** The single TODA's profile (and its edit form). */
+function TodaPage({ edit }: { edit?: boolean }) {
+  const { data, error } = useToda();
+  if (error) return <EmptyState title="Couldn't load the TODA profile" description={error instanceof Error ? error.message : undefined} />;
+  if (!data) return <div className="flex justify-center py-20"><Spinner /></div>;
+  return edit ? <AssociationForm id={data.id} /> : <AssociationProfile id={data.id} />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={qc}>
@@ -80,10 +88,9 @@ createRoot(document.getElementById('root')!).render(
               <Route path="vehicles/new" element={<Guard perm="vehicles.create"><VehicleForm /></Guard>} />
               <Route path="vehicles/:id" element={<Guard perm="vehicles.read"><VehicleProfile /></Guard>} />
               <Route path="vehicles/:id/edit" element={<Guard perm="vehicles.update"><VehicleForm /></Guard>} />
-              <Route path="associations" element={<Guard perm="associations.read"><AssociationsList /></Guard>} />
-              <Route path="associations/new" element={<Guard perm="associations.create"><AssociationForm /></Guard>} />
-              <Route path="associations/:id" element={<Guard perm="associations.read"><AssociationProfile /></Guard>} />
-              <Route path="associations/:id/edit" element={<Guard perm="associations.update"><AssociationForm /></Guard>} />
+              <Route path="toda" element={<Guard perm="associations.read"><TodaPage /></Guard>} />
+              <Route path="toda/edit" element={<Guard perm="associations.update"><TodaPage edit /></Guard>} />
+              <Route path="associations/*" element={<Navigate to="/toda" replace />} />
               <Route path="users" element={<Guard perm="users.read"><UsersPage /></Guard>} />
               <Route path="audit" element={<Guard perm="audit.read"><AuditPage /></Guard>} />
               <Route path="settings" element={<Guard><SettingsPage /></Guard>} />
