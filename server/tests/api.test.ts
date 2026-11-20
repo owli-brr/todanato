@@ -315,3 +315,32 @@ test('finance: record payment applies to oldest dues, void reverses it, correcti
   assert.equal(s.months.length, 12);
   assert.ok(s.collected > 0);
 });
+
+test('reports: list respects permissions, JSON and CSV agree, CSV is formula-safe', async () => {
+  const tr = await login('treasurer@todanato.ph');
+  const sec = await login('secretary@todanato.ph');
+  const disp = await login('dispatcher@todanato.ph');
+  const keys = (await call(tr, 'GET', '/reports')).body.map((r: any) => r.key);
+  for (const k of ['collections', 'income', 'delinquency', 'expenses', 'drivers', 'tricycles']) assert.ok(keys.includes(k), k);
+  const secKeys = (await call(sec, 'GET', '/reports')).body.map((r: any) => r.key);
+  assert.ok(!secKeys.includes('collections'), 'secretary has no finance reports');
+  assert.equal((await call(sec, 'GET', '/reports/collections')).status, 403);
+  assert.equal((await call(disp, 'GET', '/reports')).status, 403);
+  assert.equal((await call(tr, 'GET', '/reports/nope')).status, 404);
+
+  for (const k of keys) {
+    const r = await call(tr, 'GET', `/reports/${k}?from=2026-01-01&to=2026-12-31`);
+    assert.equal(r.status, 200, `${k}: ${JSON.stringify(r.body)}`);
+    assert.ok(r.body.columns.length > 0);
+  }
+
+  // An expense whose description starts with "=" must not become a formula in the CSV
+  const e = await call(tr, 'POST', '/finance/expenses', { category: 'Supplies', description: '=HYPERLINK("x")', amount: 1, method: 'CASH', spentAt: '2026-02-02' });
+  const res = await fetch(`${BASE}/reports/expenses?from=2026-02-02&to=2026-02-02&format=csv`, { headers: { Authorization: `Bearer ${tr}` } });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition') ?? '', /attachment; filename=".*expenses.*\.csv"/);
+  const csv = await res.text();
+  assert.match(csv, /'=HYPERLINK/);
+  assert.match(csv.split('\r\n')[0], /Date,Category,Description/);
+  await call(tr, 'DELETE', `/finance/expenses/${e.body.id}`);
+});
