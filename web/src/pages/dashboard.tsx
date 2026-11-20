@@ -43,7 +43,7 @@ function Stat({ icon: Icon, label, value, sub, to, tone = 'blue' }: { icon: type
   return to ? <Link to={to} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">{body}</Link> : body;
 }
 
-function ChartTooltip({ active, payload, label: l, money }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string; money?: boolean }) {
+export function ChartTooltip({ active, payload, label: l, money }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string; money?: boolean }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
@@ -59,7 +59,7 @@ function ChartTooltip({ active, payload, label: l, money }: { active?: boolean; 
   );
 }
 
-function Legend({ items }: { items: [string, string][] }) {
+export function Legend({ items }: { items: [string, string][] }) {
   return (
     <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
       {items.map(([name, color]) => (

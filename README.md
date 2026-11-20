@@ -60,6 +60,16 @@ Open http://localhost:5173. Demo accounts (password `Toda2026demo`; the login pa
 
 Anyone can apply to join the TODA at `/apply` without an account and check the result at `/application-status` using their reference number and license number. Applications arrive as pending drivers (with the uploaded license, if any) that the TODA's officers approve or reject under **Drivers → Pending applications**. The public endpoints are under `/api/public` and are rate-limited.
 
+### Finance
+
+**Finance** (treasurer, president, auditor read-only) has four tabs:
+- **Overview:** collections, expenses, net and unpaid dues, with a 12-month chart.
+- **Payments:** every official receipt (`OR-YYYY-NNNNNN`). Recording a payment applies it to the driver's oldest unpaid charges of the same kind. A receipt is never edited; it is voided with a reason, optionally with a corrected receipt issued at the same time.
+- **Dues and charges:** bill a month's dues to every member (safe to re-run), add one-off charges such as penalties, and waive a charge with a reason.
+- **Expenses:** record, edit and delete TODA expenses.
+
+Every action is in the audit log. Drivers see their balance, unpaid charges and recent receipts in the driver portal.
+
 ### Driver portal
 
 Once approved, a driver sets up their own sign-in at `/driver/activate` (application reference, license number, and the mobile number on file) and then signs in at `/driver/login` with their mobile number. The portal shows their status, membership and dues, assigned tricycle, documents, and reminders for anything expiring within 30 days. Staff can see whether a driver has set up the portal on the driver's profile and can reset it. Demo driver: `09170000001` / `Toda2026demo` (its password can't be changed in demo mode).

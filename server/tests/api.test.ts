@@ -257,3 +257,61 @@ test('driver portal: approved applicant activates, signs in, sees only their own
   assert.equal((await fetch(BASE + '/driver/me', { headers: { Cookie: c2 } })).status, 401, 'old session revoked');
   assert.equal((await post('/driver/login', { phone, password: 'Another2026pass' })).status, 200);
 });
+
+test('finance: record payment applies to oldest dues, void reverses it, corrections link', async () => {
+  const tr = await login('treasurer@todanato.ph');
+  const disp = await login('dispatcher@todanato.ph');
+  const aud = await login('auditor@todanato.ph');
+
+  // Find a driver with an open monthly-dues charge
+  const open = (await call(tr, 'GET', '/finance/dues?status=OPEN&type=MONTHLY_DUES&sort=dueDate&dir=asc&pageSize=50')).body.items;
+  assert.ok(open.length > 0, 'seed has unpaid dues');
+  const driverId = open[0].driver.id;
+  const mine = (await call(tr, 'GET', `/finance/dues?status=OPEN&type=MONTHLY_DUES&driverId=${driverId}&sort=dueDate&dir=asc`)).body.items;
+  const first = mine[0];
+
+  // Validation and permissions
+  assert.equal((await call(tr, 'POST', '/finance/payments', { driverId, type: 'MONTHLY_DUES', method: 'GCASH', amount: 50 })).status, 400, 'GCash needs a reference');
+  assert.equal((await call(disp, 'POST', '/finance/payments', { driverId, type: 'MONTHLY_DUES', method: 'CASH', amount: 50 })).status, 403);
+  assert.equal((await call(aud, 'GET', '/finance/summary')).status, 200, 'auditor can read');
+  assert.equal((await call(aud, 'POST', '/finance/expenses', { category: 'X', description: 'Nope', amount: 1, method: 'CASH', spentAt: '2026-01-01' })).status, 403);
+
+  // Partial payment
+  const part = await call(tr, 'POST', '/finance/payments', { driverId, type: 'MONTHLY_DUES', method: 'CASH', amount: 50 });
+  assert.equal(part.status, 201, JSON.stringify(part.body));
+  assert.match(part.body.receiptNo, /^OR-\d{4}-\d{6}$/);
+  let receipt = (await call(tr, 'GET', `/finance/payments/${part.body.id}`)).body;
+  assert.equal(receipt.allocations.length, 1);
+  assert.equal(receipt.allocations[0].due.id, first.id, 'applied to the oldest charge');
+  let charge = (await call(tr, 'GET', `/finance/dues?driverId=${driverId}&type=MONTHLY_DUES&pageSize=100`)).body.items.find((c: any) => c.id === first.id);
+  assert.equal(charge.status, 'PARTIAL');
+
+  // Void with a correction: the original charge goes back to unpaid, the correction pays it in full
+  assert.equal((await call(tr, 'POST', `/finance/payments/${part.body.id}/void`, { reason: 'x' })).status, 400, 'reason required');
+  const v = await call(tr, 'POST', `/finance/payments/${part.body.id}/void`, { reason: 'Wrong amount entered', replacement: { driverId, type: 'MONTHLY_DUES', method: 'CASH', amount: Number(first.amount) } });
+  assert.equal(v.status, 200, JSON.stringify(v.body));
+  assert.equal((await call(tr, 'POST', `/finance/payments/${part.body.id}/void`, { reason: 'Again please' })).status, 409);
+  receipt = (await call(tr, 'GET', `/finance/payments/${part.body.id}`)).body;
+  assert.equal(receipt.status, 'VOIDED');
+  assert.equal(receipt.replacedBy.id, v.body.replacement.id);
+  charge = (await call(tr, 'GET', `/finance/dues?driverId=${driverId}&type=MONTHLY_DUES&pageSize=100`)).body.items.find((c: any) => c.id === first.id);
+  assert.equal(charge.status, 'PAID');
+  assert.equal(charge.balance, 0);
+
+  // Billing a month twice creates nothing the second time
+  const d = new Date(); const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  await call(tr, 'POST', '/finance/dues/generate', { month });
+  const again = await call(tr, 'POST', '/finance/dues/generate', { month });
+  assert.equal(again.status, 201);
+  assert.equal(again.body.created, 0);
+
+  // Expenses
+  const e = await call(tr, 'POST', '/finance/expenses', { category: 'Supplies', description: 'Test receipt paper', amount: 120.5, method: 'CASH', spentAt: '2026-01-15' });
+  assert.equal(e.status, 201, JSON.stringify(e.body));
+  assert.equal((await call(tr, 'POST', '/finance/expenses', { category: 'Supplies', description: 'Future', amount: 1, method: 'CASH', spentAt: '2099-01-01' })).status, 400);
+  assert.equal((await call(tr, 'DELETE', `/finance/expenses/${e.body.id}`)).status, 200);
+
+  const s = (await call(tr, 'GET', '/finance/summary')).body;
+  assert.equal(s.months.length, 12);
+  assert.ok(s.collected > 0);
+});

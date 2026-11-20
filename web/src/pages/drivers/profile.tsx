@@ -267,7 +267,7 @@ export default function DriverProfile() {
           <TabsContent value="payments">
             <div className="mb-4 grid gap-4 sm:grid-cols-2">
               <Card className="p-4"><p className="text-sm text-muted-foreground">Total paid</p><p className="mt-1 text-2xl font-semibold tabular">{peso(d.finance.totalPaid, 2)}</p></Card>
-              <Card className="p-4"><p className="text-sm text-muted-foreground">Outstanding balance</p><p className={`mt-1 text-2xl font-semibold tabular ${d.finance.outstanding > 0 ? 'text-destructive' : ''}`}>{peso(d.finance.outstanding, 2)}</p></Card>
+              <Card className="p-4"><p className="text-sm text-muted-foreground">Outstanding balance</p><p className={`mt-1 text-2xl font-semibold tabular ${d.finance.outstanding > 0 ? 'text-destructive' : ''}`}>{peso(d.finance.outstanding, 2)}</p><Link to={`/finance?tab=dues&q=${encodeURIComponent(d.driverCode)}`} className="mt-1 inline-block text-xs text-primary hover:underline">See charges</Link></Card>
             </div>
             <Card><CardContent className="px-0 pb-0">
               {d.payments.length === 0 ? <EmptyState title="No payments recorded" /> : (
@@ -275,7 +275,7 @@ export default function DriverProfile() {
                   <thead><tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="px-4 py-2.5 font-medium">Receipt</th><th className="px-4 py-2.5 font-medium">Type</th><th className="hidden px-4 py-2.5 font-medium sm:table-cell">Method</th><th className="px-4 py-2.5 font-medium">Date</th><th className="px-4 py-2.5 text-right font-medium">Amount</th></tr></thead>
                   <tbody>{d.payments.map((p) => (
                     <tr key={p.id} className="border-b last:border-0">
-                      <td className="px-4 py-2.5 font-mono text-xs">{p.receiptNo}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs"><Link to={`/finance/payments/${p.id}`} className={`hover:text-primary ${p.status === 'VOIDED' ? 'line-through text-muted-foreground' : ''}`}>{p.receiptNo}</Link>{p.status === 'VOIDED' && <Badge tone="red" className="ml-2 font-sans">Void</Badge>}</td>
                       <td className="px-4 py-2.5">{label(p.type)}</td>
                       <td className="hidden px-4 py-2.5 sm:table-cell">{label(p.method)}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{fmtDateTime(p.paidAt)}</td>

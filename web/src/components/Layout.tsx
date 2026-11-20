@@ -27,7 +27,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     section: 'Operations',
     items: [
       { to: '/dispatch', label: 'Dispatch', icon: MapPinned, perm: 'dispatch.view', phase: 3 },
-      { to: '/finance', label: 'Finance', icon: Wallet, perm: 'finance.read', phase: 2 },
+      { to: '/finance', label: 'Finance', icon: Wallet, perm: 'finance.read' },
       { to: '/documents', label: 'Documents', icon: FileText, perm: 'drivers.read', phase: 2 },
       { to: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view', phase: 2 },
       { to: '/announcements', label: 'Announcements', icon: Megaphone, perm: 'announcements.manage', phase: 2 },
