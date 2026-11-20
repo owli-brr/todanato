@@ -88,6 +88,14 @@ export function LoginPage() {
         </div>
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
+      <div className="mt-8 rounded-md border bg-muted/40 p-4 text-sm">
+        <div className="font-medium">Want to drive for a TODA?</div>
+        <div className="mt-1 text-muted-foreground">
+          <Link to="/apply" className="font-medium text-primary hover:underline">Apply as a driver</Link>
+          {' · '}
+          <Link to="/application-status" className="text-primary hover:underline">Check your application</Link>
+        </div>
+      </div>
       {(import.meta.env.DEV || import.meta.env.VITE_DEMO === 'true') && (
         <div className="mt-8 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
           <div className="mb-2 font-medium text-foreground">Try a demo account · password <code>Toda2026demo</code></div>

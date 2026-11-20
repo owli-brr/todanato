@@ -162,3 +162,42 @@ test('dashboard endpoints respond for every period', async () => {
   assert.equal(f.status, 200);
   assert.ok(Array.isArray(f.body.expiring));
 });
+
+test('public driver application: apply → officer sees it → approve → status check', async () => {
+  const assocs = (await call(null, 'GET', '/public/associations')).body;
+  const sr = assocs.find((a: any) => a.name.includes('San Roque'));
+  assert.ok(sr, 'San Roque TODA is listed publicly');
+  const lic = `P${String(Date.now()).slice(-2)}-26-${String(Date.now()).slice(-6)}`;
+  const fd = new FormData();
+  const fields: Record<string, string> = {
+    associationId: sr.id, firstName: 'Ramon', lastName: 'Online', dateOfBirth: '1990-05-01', contactNumber: '09171112222',
+    address: '12 Sumulong Hwy', emergencyName: 'Liza Online', emergencyPhone: '09173334444', licenseNumber: lic, licenseExpiry: '2030-01-01', consent: 'true',
+  };
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  fd.append('license', new Blob(['%PDF-1.4 test'], { type: 'application/pdf' }), 'license.pdf');
+
+  // Missing consent and honeypot are rejected
+  const noConsent = new FormData();
+  for (const [k, v] of Object.entries(fields)) if (k !== 'consent') noConsent.append(k, v);
+  assert.equal((await call(null, 'POST', '/public/driver-applications', noConsent)).status, 400);
+
+  const r = await call(null, 'POST', '/public/driver-applications', fd);
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  const ref = r.body.reference;
+  assert.equal((await call(null, 'POST', '/public/driver-applications', fd)).status, 409, 'duplicate license');
+
+  const pending = await call(null, 'POST', '/public/driver-applications/status', { reference: ref, licenseNumber: lic });
+  assert.equal(pending.body.status, 'PENDING');
+  assert.equal((await call(null, 'POST', '/public/driver-applications/status', { reference: ref, licenseNumber: 'A00-00-000000' })).status, 404);
+
+  // The other association can't see it; San Roque's president can approve it
+  const mj = await login('president.mjtoda@toms.ph');
+  assert.equal((await call(mj, 'GET', `/drivers?q=${lic}`)).body.items.length, 0);
+  const pres = await login('president.srtoda@toms.ph');
+  const found = (await call(pres, 'GET', `/drivers?q=${lic}&application=PENDING`)).body.items;
+  assert.equal(found.length, 1);
+  const profile = (await call(pres, 'GET', `/drivers/${found[0].id}`)).body;
+  assert.equal(profile.documents.length, 1);
+  assert.equal((await call(pres, 'POST', `/drivers/${found[0].id}/application`, { decision: 'APPROVE' })).status, 200);
+  assert.equal((await call(null, 'POST', '/public/driver-applications/status', { reference: ref, licenseNumber: lic })).body.status, 'APPROVED');
+});

@@ -58,6 +58,10 @@ Open http://localhost:5173. Demo accounts (password `Toda2026demo`; the login pa
 
 `npm run db:seed` (in `server/`) wipes and reloads the sample data: 6 Antipolo City TODAs, 136 drivers, 112 tricycles, ~3,500 rides over 90 days, ~2,800 payments and 6 months of dues and expenses. All names and numbers are fictional.
 
+### Driver applicants
+
+Anyone can apply to a TODA at `/apply` without an account and check the result at `/application-status` using their reference number and license number. Applications arrive as pending drivers (with the uploaded license, if any) that the association's officers approve or reject under **Drivers → Pending applications**. The public endpoints are under `/api/public` and are rate-limited.
+
 ### Tests
 
 With the API running on seeded data: `npm test`. The suite covers sign-in, association isolation, permission checks, PII masking, the full driver lifecycle (register → approve → upload/verify document → assign tricycle → suspend), privilege-escalation attempts, and audit logging.

@@ -10,7 +10,7 @@ import { removeStored, storeUpload, upload } from '../lib/uploads';
 
 export const driversRouter = Router();
 
-const driverBody = z.object({
+export const driverBody = z.object({
   firstName: z.string().trim().min(1, 'Enter the first name').max(60),
   middleName: optStr(60),
   lastName: z.string().trim().min(1, 'Enter the last name').max(60),
