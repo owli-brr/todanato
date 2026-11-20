@@ -76,7 +76,9 @@ async function wipe() {
     'MaintenanceRecord', 'VehicleDocument', 'VehicleAssignment', 'Vehicle', 'DriverDocument', 'AssociationOfficer', 'AssociationMembership', 'AssociationDocument',
     'AuditLog', 'StoredFile', 'LoginHistory', 'PasswordResetToken', 'Session', 'User', 'Driver', 'Association', 'SystemSetting', 'RolePermission', 'Permission', 'Role', 'Organization',
   ];
-  await prisma.$executeRawUnsafe(`TRUNCATE ${tables.map((t) => `"${t}"`).join(', ')} CASCADE`);
+  const url = process.env.DATABASE_URL;
+  const schema = ((url && new URL(url).searchParams.get('schema')) || 'public').replace(/"/g, '');
+  await prisma.$executeRawUnsafe(`TRUNCATE ${tables.map((t) => `"${schema}"."${t}"`).join(', ')} CASCADE`);
 }
 
 async function storeSample(title: string) {
