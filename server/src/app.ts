@@ -32,7 +32,7 @@ export function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
   app.get('/api/openapi.json', (_req, res) => res.json(openapi));
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapi, { customSiteTitle: 'TOMS API' }));
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapi, { customSiteTitle: 'TODAnaTo API' }));
 
   app.use('/api/auth', authRouter);
   app.use('/api/public', publicRouter);

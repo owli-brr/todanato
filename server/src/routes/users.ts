@@ -10,6 +10,7 @@ import { assertAssociationAccess, assocScope, requirePermission } from '../middl
 import { passwordSchema } from './auth';
 import { PERMISSIONS } from '../lib/permissions';
 import { guardDemo, guardDemoAccount } from '../lib/demo';
+import { todaId } from '../lib/toda';
 
 export const usersRouter = Router();
 
@@ -20,7 +21,7 @@ const userSelect = {
   association: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.UserSelect;
 
-const ROLE_RANK: Record<string, number> = { SUPER_ADMIN: 100, ORG_ADMIN: 80, AUDITOR: 50, ASSOC_PRESIDENT: 40, SECRETARY: 30, TREASURER: 30, DISPATCHER: 20 };
+const ROLE_RANK: Record<string, number> = { SUPER_ADMIN: 100, AUDITOR: 50, ASSOC_PRESIDENT: 40, SECRETARY: 30, TREASURER: 30, DISPATCHER: 20 };
 
 /** Users can only grant roles at or below their own rank, and only Super Admins create Super Admins. */
 async function assertCanGrantRole(req: Express.Request, roleId: string) {
@@ -80,8 +81,7 @@ usersRouter.post(
   ah(async (req, res) => {
     const body = userBody.extend({ password: passwordSchema.optional() }).parse(req.body);
     const role = await assertCanGrantRole(req, body.roleId);
-    if (role.scope === 'ASSOCIATION' && !body.associationId) throw new HttpError(400, 'This role needs an association', { fields: { associationId: 'Required for this role' } });
-    const associationId = role.scope === 'ASSOCIATION' ? body.associationId! : null;
+    const associationId = role.scope === 'ASSOCIATION' ? await todaId() : null;
     await assertAssociationAccess(req, associationId);
     let organizationId = req.auth!.organizationId;
     if (associationId) organizationId = (await prisma.association.findUniqueOrThrow({ where: { id: associationId } })).organizationId;
@@ -118,14 +118,14 @@ usersRouter.patch(
     if (before.role.key === 'SUPER_ADMIN' && req.auth!.roleKey !== 'SUPER_ADMIN') throw forbidden();
     const body = userBody.partial().parse(req.body);
     if ((body.email && body.email !== before.email) || (body.roleId && body.roleId !== before.roleId)) guardDemoAccount(before.email, 'change its email or role');
-    let associationId = body.associationId === undefined ? before.associationId : body.associationId;
+    let associationId = before.associationId;
     if (body.roleId && body.roleId !== before.roleId) {
       if (before.id === req.auth!.userId) throw forbidden('You cannot change your own role');
       const role = await assertCanGrantRole(req, body.roleId);
       if (role.scope !== 'ASSOCIATION') associationId = null;
     }
     const role = await prisma.role.findUniqueOrThrow({ where: { id: body.roleId ?? before.roleId } });
-    if (role.scope === 'ASSOCIATION' && !associationId) throw new HttpError(400, 'This role needs an association');
+    if (role.scope === 'ASSOCIATION') associationId = await todaId();
     await assertAssociationAccess(req, associationId);
     const user = await prisma.user.update({
       where: { id: before.id },

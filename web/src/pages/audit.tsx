@@ -34,7 +34,7 @@ export default function AuditPage() {
         <Toolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Search details or user…" />
           <Select value={lp.get('entity')} onChange={(e) => lp.set({ entity: e.target.value })} className="sm:w-44" aria-label="Record type">
-            <option value="">All records</option>{['Driver', 'Vehicle', 'Association', 'AssociationMembership', 'AssociationOfficer', 'User', 'Role', 'Organization'].map((e) => <option key={e} value={e}>{e.replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}
+            <option value="">All records</option>{['Driver', 'Vehicle', 'Association', 'AssociationMembership', 'AssociationOfficer', 'User', 'Role'].map((e) => <option key={e} value={e}>{e.replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}
           </Select>
           <Select value={lp.get('action')} onChange={(e) => lp.set({ action: e.target.value })} className="sm:w-40" aria-label="Action">
             <option value="">All actions</option>{['LOGIN', 'CREATE', 'UPDATE', 'DELETE', 'APPROVE', 'REJECT', 'SUSPEND', 'ACTIVATE', 'DEACTIVATE', 'ASSIGN', 'UPLOAD', 'VERIFY', 'EXPORT', 'PASSWORD_RESET'].map((a) => <option key={a} value={a}>{a.replace(/_/g, ' ').toLowerCase()}</option>)}

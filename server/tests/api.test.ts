@@ -26,33 +26,30 @@ async function login(email: string) {
 }
 
 test('rejects bad credentials and unauthenticated requests', async () => {
-  assert.equal((await call(null, 'POST', '/auth/login', { email: 'superadmin@toms.ph', password: 'wrong-password1' })).status, 401);
+  assert.equal((await call(null, 'POST', '/auth/login', { email: 'superadmin@todanato.ph', password: 'wrong-password1' })).status, 401);
   assert.equal((await call(null, 'GET', '/drivers')).status, 401);
   assert.equal((await call('not-a-token', 'GET', '/drivers')).status, 401);
 });
 
-test('association officers only see their own association', async () => {
-  const sa = await login('superadmin@toms.ph');
-  const pres = await login('president.srtoda@toms.ph');
+test('one TODA: everything belongs to it and associations cannot be added', async () => {
+  const sa = await login('superadmin@todanato.ph');
+  const pres = await login('president@todanato.ph');
+  const assocs = (await call(sa, 'GET', '/associations?all=true')).body;
+  assert.equal(assocs.length, 1, 'exactly one TODA');
   const all = await call(sa, 'GET', '/drivers?pageSize=100');
   const mine = await call(pres, 'GET', '/drivers?pageSize=100');
-  assert.ok(all.body.total > mine.body.total);
-  const myAssoc = mine.body.items[0].association.id;
-  assert.ok(mine.body.items.every((d: any) => d.association.id === myAssoc));
-  const other = all.body.items.find((d: any) => d.association?.id !== myAssoc);
-  assert.equal((await call(pres, 'GET', `/drivers/${other.id}`)).status, 404, 'other association driver is hidden');
-  assert.equal((await call(pres, 'PATCH', `/drivers/${other.id}`, { contactNumber: '09171112222' })).status, 404);
-  const assocs = await call(pres, 'GET', '/associations?all=true');
-  assert.equal(assocs.body.length, 1);
-  // Filtering by another association id must not leak.
-  const leak = await call(pres, 'GET', `/drivers?associationId=${other.association.id}`);
-  assert.equal(leak.body.total, 0);
+  assert.equal(all.body.total, mine.body.total, 'officers see the whole TODA');
+  assert.ok(mine.body.items.every((d: any) => d.association.id === assocs[0].id));
+  assert.equal((await call(sa, 'POST', '/associations', { name: 'Another TODA' })).status, 404, 'no endpoint to add a TODA');
+  assert.equal((await call(sa, 'DELETE', `/associations/${assocs[0].id}`)).status, 404, 'no endpoint to archive the TODA');
+  const roles = (await call(sa, 'GET', '/roles')).body.map((r: any) => r.key);
+  assert.ok(!roles.includes('ORG_ADMIN'), 'no organization admin role');
 });
 
 test('role permissions are enforced', async () => {
-  const tr = await login('treasurer.srtoda@toms.ph');
-  const disp = await login('dispatcher.srtoda@toms.ph');
-  const aud = await login('auditor@toms.ph');
+  const tr = await login('treasurer@todanato.ph');
+  const disp = await login('dispatcher@todanato.ph');
+  const aud = await login('auditor@todanato.ph');
   assert.equal((await call(tr, 'POST', '/drivers', {})).status, 403);
   assert.equal((await call(disp, 'GET', '/users')).status, 403);
   assert.equal((await call(aud, 'GET', '/audit-logs')).status, 200);
@@ -68,8 +65,8 @@ test('role permissions are enforced', async () => {
 });
 
 test('driver lifecycle: register → approve → assign tricycle → suspend', async () => {
-  const sec = await login('secretary.srtoda@toms.ph');
-  const pres = await login('president.srtoda@toms.ph');
+  const sec = await login('secretary@todanato.ph');
+  const pres = await login('president@todanato.ph');
   const lic = `T${String(Date.now()).slice(-2)}-25-${String(Date.now()).slice(-6)}`;
   const created = await call(sec, 'POST', '/drivers', {
     firstName: 'Test', lastName: 'Driver', dateOfBirth: '1990-05-01', contactNumber: '09171234567', address: '1 Rizal St., Brgy. San Roque',
@@ -117,42 +114,41 @@ test('driver lifecycle: register → approve → assign tricycle → suspend', a
   const actions = logs.body.items.map((l: any) => l.action);
   for (const a of ['CREATE', 'APPROVE', 'UPLOAD', 'VERIFY', 'SUSPEND']) assert.ok(actions.includes(a), `audit has ${a}`);
   // Clean up
-  const sa = await login('superadmin@toms.ph');
+  const sa = await login('superadmin@todanato.ph');
   assert.equal((await call(sa, 'DELETE', `/vehicles/${v.body.id}`)).status, 200);
   assert.equal((await call(sa, 'DELETE', `/drivers/${id}`)).status, 200);
 });
 
 test('users: cannot escalate privileges', async () => {
-  const pres = await login('president.srtoda@toms.ph');
-  const sa = await login('superadmin@toms.ph');
+  const pres = await login('president@todanato.ph');
+  const sec = await login('secretary@todanato.ph');
+  const sa = await login('superadmin@todanato.ph');
   const roles = (await call(pres, 'GET', '/roles')).body;
   const superRole = roles.find((r: any) => r.key === 'SUPER_ADMIN');
-  const orgAdmin = roles.find((r: any) => r.key === 'ORG_ADMIN');
+  const presRole = roles.find((r: any) => r.key === 'ASSOC_PRESIDENT');
   const secRole = roles.find((r: any) => r.key === 'SECRETARY');
-  // President has no users.manage by default
-  assert.equal((await call(pres, 'POST', '/users', { fullName: 'X', email: 'x@toms.ph', roleId: superRole.id })).status, 403);
-  // Org admin cannot create a super admin
-  const admin = await login('admin@toms.ph');
-  assert.equal((await call(admin, 'POST', '/users', { fullName: 'Sneaky', email: `sneaky${Date.now()}@toms.ph`, roleId: superRole.id })).status, 403);
-  assert.equal((await call(admin, 'POST', '/users', { fullName: 'Sneaky', email: `sneaky${Date.now()}@toms.ph`, roleId: orgAdmin.id })).status, 403);
-  // Org admin can create a secretary, who must change password on first login
-  const assoc = (await call(admin, 'GET', '/associations?all=true')).body[1];
-  const email = `newsec${Date.now()}@toms.ph`;
-  const u = await call(admin, 'POST', '/users', { fullName: 'New Secretary', email, roleId: secRole.id, associationId: assoc.id });
+  // Secretary cannot manage users; president cannot create a super admin or another president
+  assert.equal((await call(sec, 'POST', '/users', { fullName: 'X', email: 'x@example.ph', roleId: secRole.id })).status, 403);
+  assert.equal((await call(pres, 'POST', '/users', { fullName: 'Sneaky', email: `sneaky${Date.now()}@example.ph`, roleId: superRole.id })).status, 403);
+  assert.equal((await call(pres, 'POST', '/users', { fullName: 'Sneaky', email: `sneaky${Date.now()}@example.ph`, roleId: presRole.id })).status, 403);
+  // President can add a secretary (joined to the TODA automatically), who must change password on first login
+  const email = `newsec${Date.now()}@example.ph`;
+  const u = await call(pres, 'POST', '/users', { fullName: 'New Secretary', email, roleId: secRole.id });
   assert.equal(u.status, 201, JSON.stringify(u.body));
+  assert.ok(u.body.user.association?.id, 'assigned to the TODA');
   const li = await call(null, 'POST', '/auth/login', { email, password: u.body.temporaryPassword });
   assert.equal(li.status, 200);
   assert.equal(li.body.user.mustChangePassword, true);
   // Deactivation ends access immediately
-  assert.equal((await call(admin, 'POST', `/users/${u.body.user.id}/status`, { active: false })).status, 200);
+  assert.equal((await call(pres, 'POST', `/users/${u.body.user.id}/status`, { active: false })).status, 200);
   assert.equal((await call(li.body.accessToken, 'GET', '/auth/me')).status, 401);
   // Only Super Admin can edit role permissions
-  assert.equal((await call(admin, 'PUT', `/roles/${secRole.id}/permissions`, { permissions: [] })).status, 403);
+  assert.equal((await call(pres, 'PUT', `/roles/${secRole.id}/permissions`, { permissions: [] })).status, 403);
   assert.equal((await call(sa, 'PUT', `/roles/${superRole.id}/permissions`, { permissions: [] })).status, 403);
 });
 
 test('dashboard endpoints respond for every period', async () => {
-  const sa = await login('superadmin@toms.ph');
+  const sa = await login('superadmin@todanato.ph');
   for (const p of ['daily', 'weekly', 'monthly']) {
     const r = await call(sa, 'GET', `/dashboard/activity?period=${p}`);
     assert.equal(r.status, 200);
@@ -164,13 +160,12 @@ test('dashboard endpoints respond for every period', async () => {
 });
 
 test('public driver application: apply → officer sees it → approve → status check', async () => {
-  const assocs = (await call(null, 'GET', '/public/associations')).body;
-  const sr = assocs.find((a: any) => a.name.includes('San Roque'));
-  assert.ok(sr, 'San Roque TODA is listed publicly');
+  const toda = (await call(null, 'GET', '/public/toda')).body;
+  assert.ok(toda.name, 'TODA name is public');
   const lic = `P${String(Date.now()).slice(-2)}-26-${String(Date.now()).slice(-6)}`;
   const fd = new FormData();
   const fields: Record<string, string> = {
-    associationId: sr.id, firstName: 'Ramon', lastName: 'Online', dateOfBirth: '1990-05-01', contactNumber: '09171112222',
+    firstName: 'Ramon', lastName: 'Online', dateOfBirth: '1990-05-01', contactNumber: '09171112222',
     address: '12 Sumulong Hwy', emergencyName: 'Liza Online', emergencyPhone: '09173334444', licenseNumber: lic, licenseExpiry: '2030-01-01', consent: 'true',
   };
   for (const [k, v] of Object.entries(fields)) fd.append(k, v);
@@ -190,10 +185,8 @@ test('public driver application: apply → officer sees it → approve → statu
   assert.equal(pending.body.status, 'PENDING');
   assert.equal((await call(null, 'POST', '/public/driver-applications/status', { reference: ref, licenseNumber: 'A00-00-000000' })).status, 404);
 
-  // The other association can't see it; San Roque's president can approve it
-  const mj = await login('president.mjtoda@toms.ph');
-  assert.equal((await call(mj, 'GET', `/drivers?q=${lic}`)).body.items.length, 0);
-  const pres = await login('president.srtoda@toms.ph');
+  // The president sees it as a pending application and approves it
+  const pres = await login('president@todanato.ph');
   const found = (await call(pres, 'GET', `/drivers?q=${lic}&application=PENDING`)).body.items;
   assert.equal(found.length, 1);
   const profile = (await call(pres, 'GET', `/drivers/${found[0].id}`)).body;

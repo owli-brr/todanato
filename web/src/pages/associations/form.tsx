@@ -14,9 +14,10 @@ const empty = {
   ltfrbAccreditation: '', dateEstablished: '', status: 'ACTIVE', membershipFee: '0', monthlyDues: '0', dailyContribution: '0',
 };
 
-export default function AssociationForm() {
-  const { id } = useParams();
-  const editing = !!id;
+export default function AssociationForm({ id: idProp }: { id?: string } = {}) {
+  const params = useParams();
+  const id = idProp ?? params.id;
+  const editing = true;
   const nav = useNavigate();
   const { user } = useAuth();
   const f = useForm(empty);
@@ -33,19 +34,19 @@ export default function AssociationForm() {
   const save = useAction(
     (b: typeof empty) => {
       const p = { ...b, dateEstablished: b.dateEstablished || null };
-      return editing ? api.patch<{ id: string }>(`/associations/${id}`, p) : api.post<{ id: string }>('/associations', p);
+      return api.patch<{ id: string }>(`/associations/${id}`, p);
     },
-    { success: editing ? 'Association updated' : 'Association registered', invalidate: [['associations'], ['association', id]], onSuccess: (r) => nav(`/associations/${r.id}`), onFieldErrors: f.setErrors },
+    { success: 'TODA profile saved', invalidate: [['associations'], ['association', id]], onSuccess: () => nav('/toda'), onFieldErrors: f.setErrors },
   );
   if (editing && existing.error) return <ErrorState error={existing.error} />;
   if (editing && !existing.data) return <Skeleton className="h-96" />;
   const e = f.errors;
   return (
     <div>
-      <PageHeader title={editing ? 'Edit association' : 'Register association'} back={editing ? `/associations/${id}` : '/associations'} />
+      <PageHeader title="Edit TODA profile" back="/toda" />
       <form onSubmit={(ev) => { ev.preventDefault(); save.mutate(f.values); }} noValidate>
         <Card><CardContent className="pt-6">
-          <FormSection title="Association">
+          <FormSection title="TODA">
             <Field label="Name" name="name" required error={e.name} className="sm:col-span-2"><Input {...f.bind('name')} placeholder="e.g. San Roque Tricycle Operators and Drivers Association" /></Field>
             <Field label="Acronym" name="acronym" error={e.acronym}><Input {...f.bind('acronym')} placeholder="SRTODA" /></Field>
             <Field label="Date established" name="dateEstablished" error={e.dateEstablished}><Input type="date" {...f.bind('dateEstablished')} /></Field>
@@ -71,7 +72,7 @@ export default function AssociationForm() {
         </CardContent></Card>
         <div className="sticky bottom-0 mt-4 flex justify-end gap-2 border-t bg-background/95 py-3 backdrop-blur">
           <Button type="button" variant="outline" onClick={() => nav(-1)}>Cancel</Button>
-          <Button type="submit" loading={save.isPending}>{editing ? 'Save changes' : 'Register association'}</Button>
+          <Button type="submit" loading={save.isPending}>Save changes</Button>
         </div>
       </form>
     </div>

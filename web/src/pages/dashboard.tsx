@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 interface Summary {
   drivers: { total: number; active: number; inactive: number; suspended: number; pending: number; pendingApplications: number };
   vehicles: { total: number; byStatus: Record<string, number> };
-  associations: number;
+  members: number;
   ridesToday: { total: number; pending: number; ongoing: number; completed: number; cancelled: number };
   finance: { collectionsToday: number; transactionsToday: number; monthIncome: number; monthExpenses: number; outstanding: number; outstandingCount: number } | null;
   live: { available: number; onTrip: number; onBreak: number; offline: number };
@@ -99,7 +99,7 @@ export default function Dashboard() {
     <div>
       <PageHeader
         title={`${greeting}, ${user?.fullName.split(' ')[0]}`}
-        description={`Here's what's happening ${user?.association ? `in ${user.association.name}` : 'across your associations'} today.`}
+        description="Here's what's happening in the TODA today."
       />
 
       {summary.error ? <Card><ErrorState error={summary.error} onRetry={() => summary.refetch()} /></Card> : (
@@ -111,7 +111,7 @@ export default function Dashboard() {
               <Stat icon={ClipboardCheck} tone="amber" label="Pending applications" value={num(s.drivers.pendingApplications)} to="/drivers?application=PENDING" sub="Waiting for approval" />
               <Stat icon={Bike} label="Registered tricycles" value={num(s.vehicles.total)} to="/vehicles"
                 sub={`${s.vehicles.byStatus.OPERATIONAL ?? 0} operational · ${s.vehicles.byStatus.UNDER_MAINTENANCE ?? 0} in maintenance`} />
-              <Stat icon={Building2} tone="slate" label="Associations" value={num(s.associations)} to="/associations" sub={user?.association ? 'Your association' : 'Registered TODAs'} />
+              <Stat icon={Building2} tone="slate" label="Active members" value={num(s.members)} to="/toda" sub="Of the TODA" />
               <Stat icon={Route} label="Rides today" value={num(s.ridesToday.total)}
                 sub={`${s.ridesToday.ongoing} ongoing · ${s.ridesToday.completed} completed · ${s.ridesToday.cancelled} cancelled`} />
               {s.finance ? (
@@ -199,7 +199,7 @@ export default function Dashboard() {
                   <Link key={d.id} to={`/drivers/${d.id}`} className="-mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/60">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{d.name}</div>
-                      <div className="text-xs text-muted-foreground">{d.association} · applied {relTime(d.registeredAt)}</div>
+                      <div className="text-xs text-muted-foreground">Applied {relTime(d.registeredAt)}</div>
                     </div>
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
                   </Link>
@@ -251,7 +251,7 @@ export default function Dashboard() {
                 <ul className="mt-3 divide-y">
                   {feed.data.liveDrivers.map((d) => (
                     <li key={d.id} className="flex items-center justify-between gap-2 py-2">
-                      <Link to={`/drivers/${d.id}`} className="min-w-0 truncate text-sm hover:text-primary">{d.name} <span className="text-xs text-muted-foreground">{d.association}</span></Link>
+                      <Link to={`/drivers/${d.id}`} className="min-w-0 truncate text-sm hover:text-primary">{d.name}</Link>
                       <div className="flex shrink-0 items-center gap-2"><span className="text-xs text-muted-foreground">{relTime(d.lastSeen)}</span><StatusBadge status={d.availability} /></div>
                     </li>
                   ))}
@@ -274,7 +274,7 @@ export default function Dashboard() {
                     <tbody>
                       {feed.data.transactions.map((t) => (
                         <tr key={t.id} className="border-t">
-                          <td className="px-5 py-2.5"><div className="font-medium">{t.driver ?? '—'}</div><div className="text-xs text-muted-foreground">{t.receiptNo} · {t.association}</div></td>
+                          <td className="px-5 py-2.5"><div className="font-medium">{t.driver ?? '—'}</div><div className="text-xs text-muted-foreground">{t.receiptNo}</div></td>
                           <td className="hidden px-2 py-2.5 text-muted-foreground sm:table-cell">{label(t.type)}</td>
                           <td className="hidden px-2 py-2.5 sm:table-cell"><Badge tone={t.method === 'CASH' ? 'gray' : 'blue'}>{label(t.method)}</Badge></td>
                           <td className="px-5 py-2.5 text-right"><div className="font-medium tabular">{peso(t.amount, 2)}</div><div className="text-xs text-muted-foreground">{relTime(t.paidAt)}</div></td>

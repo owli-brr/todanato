@@ -6,6 +6,7 @@ import { ah, HttpError, notFound, optDate, optStr, orderBy, pageArgs, paged, pag
 import { audit, diff } from '../lib/audit';
 import { assertAssociationAccess, assocScope, can, requirePermission } from '../middleware/auth';
 import { nextDriverCode, nextMembershipNo } from '../lib/codes';
+import { todaId } from '../lib/toda';
 import { removeStored, storeUpload, upload } from '../lib/uploads';
 
 export const driversRouter = Router();
@@ -31,7 +32,6 @@ export const driverBody = z.object({
   licenseNumber: z.string().trim().toUpperCase().regex(/^[A-Z]\d{2}-\d{2}-\d{6}$/, 'LTO format: A01-23-456789'),
   licenseType: z.enum(['PROFESSIONAL', 'NON_PROFESSIONAL']).default('PROFESSIONAL'),
   licenseExpiry: reqDate,
-  associationId: z.string().uuid().optional().nullable(),
   memberType: z.enum(['DRIVER', 'OPERATOR', 'DRIVER_OPERATOR']).optional(),
 });
 
@@ -160,7 +160,7 @@ driversRouter.post(
   ah(async (req, res) => {
     const { memberType, ...body } = driverBody.parse(req.body);
     // Association-level users always register into their own association.
-    const associationId = req.auth!.scope === 'ASSOCIATION' ? req.auth!.associationId : body.associationId ?? null;
+    const associationId = req.auth!.scope === 'ASSOCIATION' ? req.auth!.associationId : await todaId();
     await assertAssociationAccess(req, associationId);
     const driver = await prisma.$transaction(async (tx) => {
       const d = await tx.driver.create({ data: { ...body, associationId, driverCode: await nextDriverCode() } });
@@ -231,22 +231,7 @@ driversRouter.patch(
   ah(async (req, res) => {
     const before = await loadScoped(req, req.params.id);
     const { memberType: _m, ...body } = driverBody.partial().parse(stripMasked(req, req.body));
-    if (body.associationId !== undefined && body.associationId !== before.associationId) {
-      if (req.auth!.scope === 'ASSOCIATION') throw new HttpError(403, 'Only organization administrators can transfer drivers between associations');
-      await assertAssociationAccess(req, body.associationId);
-    }
-    const after = await prisma.$transaction(async (tx) => {
-      const updated = await tx.driver.update({ where: { id: before.id }, data: body });
-      // Transfer: end old membership, open a pending one in the new association.
-      if (body.associationId !== undefined && body.associationId !== before.associationId) {
-        await tx.associationMembership.updateMany({ where: { driverId: before.id, status: { in: ['ACTIVE', 'PENDING'] } }, data: { status: 'TERMINATED', endDate: new Date(), remarks: 'Transferred' } });
-        if (body.associationId) {
-          const a = await tx.association.findUniqueOrThrow({ where: { id: body.associationId } });
-          await tx.associationMembership.create({ data: { driverId: before.id, associationId: a.id, membershipNo: await nextMembershipNo(a.code), status: before.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING', approvedAt: before.status === 'ACTIVE' ? new Date() : null, startDate: new Date() } });
-        }
-      }
-      return updated;
-    });
+    const after = await prisma.driver.update({ where: { id: before.id }, data: body });
     const d = diff(before, after);
     await audit(req, { action: 'UPDATE', entity: 'Driver', entityId: after.id, summary: `Updated ${fullName(after)} (${d.changed.join(', ') || 'no changes'})`, before: d.before, after: d.after, associationId: after.associationId });
     res.json(after);
@@ -261,8 +246,7 @@ driversRouter.post(
     const d = await loadScoped(req, req.params.id);
     if (d.applicationStatus !== 'PENDING') throw new HttpError(409, 'This application was already decided');
     if (decision === 'REJECT' && !reason) throw new HttpError(400, 'Give a reason for rejecting', { fields: { reason: 'Required' } });
-    if (decision === 'APPROVE' && !d.associationId) throw new HttpError(400, 'Assign the driver to an association before approving');
-    const now = new Date();
+        const now = new Date();
     await prisma.$transaction([
       prisma.driver.update({
         where: { id: d.id },

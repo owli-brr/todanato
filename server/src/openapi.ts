@@ -30,15 +30,13 @@ const ops: Op[] = [
   ['get', '/roles/permissions', 'Roles', 'Permission catalog'],
   ['put', '/roles/{id}/permissions', 'Roles', 'Replace a role\'s permissions', 'roles.manage'],
 
-  ['get', '/associations', 'Associations', 'List associations. Query: q, status, all=true for a dropdown list', 'associations.read'],
-  ['post', '/associations', 'Associations', 'Register an association', 'associations.create'],
-  ['get', '/associations/{id}', 'Associations', 'Association profile with officers and stats', 'associations.read'],
-  ['patch', '/associations/{id}', 'Associations', 'Edit association', 'associations.update'],
-  ['delete', '/associations/{id}', 'Associations', 'Archive association', 'associations.delete'],
-  ['post', '/associations/{id}/officers', 'Associations', 'Assign an officer', 'associations.officers'],
-  ['post', '/associations/{id}/officers/{officerId}/end', 'Associations', 'End an officer\'s term', 'associations.officers'],
-  ['get', '/associations/{id}/members', 'Associations', 'Membership list', 'memberships.read'],
-  ['post', '/associations/{id}/members/{membershipId}/status', 'Associations', 'Change a membership status', 'memberships.manage'],
+  ['get', '/associations', 'TODA profile', 'The TODA (a list with one entry)', 'associations.read'],
+  ['get', '/associations/{id}', 'TODA profile', 'TODA profile with officers and stats', 'associations.read'],
+  ['patch', '/associations/{id}', 'TODA profile', 'Edit the TODA profile', 'associations.update'],
+  ['post', '/associations/{id}/officers', 'TODA profile', 'Assign an officer', 'associations.officers'],
+  ['post', '/associations/{id}/officers/{officerId}/end', 'TODA profile', 'End an officer\'s term', 'associations.officers'],
+  ['get', '/associations/{id}/members', 'TODA profile', 'Membership list', 'memberships.read'],
+  ['post', '/associations/{id}/members/{membershipId}/status', 'TODA profile', 'Change a membership status', 'memberships.manage'],
 
   ['get', '/drivers', 'Drivers', 'List drivers. Query: q, status, application, associationId, licenseExpiring, unassigned, sort, dir, page, pageSize', 'drivers.read'],
   ['get', '/drivers/export', 'Drivers', 'Export the filtered list as CSV', 'drivers.export'],
@@ -97,10 +95,10 @@ for (const [method, p, tag, summary, permission, body] of ops) {
 export const openapi = {
   openapi: '3.1.0',
   info: {
-    title: 'TOMS — Tricycle Organization Management System API',
+    title: 'TODAnaTo API',
     version: '1.0.0-phase1',
     description:
-      'REST API shared by the TOMS admin web app and (from Phase 3) the driver and passenger mobile apps. ' +
+      'REST API shared by the TODAnaTo admin web app and (from Phase 3) the driver and passenger mobile apps. ' +
       'Admin endpoints require a Bearer access token from /auth/login. Mobile tokens use a different audience and cannot call admin endpoints.',
   },
   servers: [{ url: '/api' }],

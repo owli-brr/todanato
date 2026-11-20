@@ -2,26 +2,23 @@ import { useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { useAction, useForm } from '@/lib/hooks';
 import { toInputDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Field, FormSection, Input, Select } from '@/components/ui/form';
 import { Card, CardContent, ErrorState, PageHeader, Skeleton } from '@/components/ui/misc';
-import { AssociationSelect } from '@/components/shared';
 
 const empty = {
   firstName: '', middleName: '', lastName: '', suffix: '', dateOfBirth: '', gender: '', contactNumber: '', email: '',
   address: '', barangay: '', city: '', emergencyName: '', emergencyRelation: '', emergencyPhone: '',
-  licenseNumber: '', licenseType: 'PROFESSIONAL', licenseExpiry: '', associationId: '', memberType: 'DRIVER',
+  licenseNumber: '', licenseType: 'PROFESSIONAL', licenseExpiry: '', memberType: 'DRIVER',
 };
 
 export default function DriverForm() {
   const { id } = useParams();
   const editing = !!id;
   const nav = useNavigate();
-  const { user } = useAuth();
-  const f = useForm({ ...empty, associationId: user?.association?.id ?? '' });
+  const f = useForm(empty);
 
   const existing = useQuery({ queryKey: ['driver', id], queryFn: () => api.get<Record<string, unknown>>(`/drivers/${id}`), enabled: editing });
   useEffect(() => {
@@ -37,7 +34,7 @@ export default function DriverForm() {
 
   const save = useAction(
     (body: typeof empty) => {
-      const payload: Record<string, unknown> = { ...body, gender: body.gender || null, associationId: body.associationId || null };
+      const payload: Record<string, unknown> = { ...body, gender: body.gender || null };
       if (editing) delete payload.memberType;
       return editing ? api.patch<{ id: string }>(`/drivers/${id}`, payload) : api.post<{ id: string }>('/drivers', payload);
     },
@@ -53,7 +50,6 @@ export default function DriverForm() {
   if (editing && existing.error) return <ErrorState error={existing.error} />;
   if (editing && !existing.data) return <Skeleton className="h-96" />;
   const e = f.errors;
-  const restrictedAssoc = user?.role.scope === 'ASSOCIATION';
   const piiHidden = editing && existing.data?.address === '••••••';
 
   return (
@@ -91,16 +87,13 @@ export default function DriverForm() {
             </Field>
             <Field label="Expiry date" name="licenseExpiry" required error={e.licenseExpiry}><Input type="date" {...f.bind('licenseExpiry')} /></Field>
           </FormSection>
-          <FormSection title="Membership" description={editing ? 'Changing the association transfers the driver and opens a new membership.' : 'The driver joins this association as a pending member.'}>
-            <Field label="Association" name="associationId" error={e.associationId} hint={restrictedAssoc ? 'Drivers you add join your association.' : undefined}>
-              {restrictedAssoc ? <Input value={user?.association?.name ?? ''} disabled /> : <AssociationSelect id="associationId" value={f.values.associationId} onChange={(v) => f.set('associationId', v)} allLabel="— Not assigned yet —" />}
-            </Field>
-            {!editing && (
+          {!editing && (
+            <FormSection title="Membership" description="The driver joins the TODA as a pending member until approved.">
               <Field label="Member type" name="memberType">
                 <Select {...f.bind('memberType')}><option value="DRIVER">Driver</option><option value="OPERATOR">Operator</option><option value="DRIVER_OPERATOR">Driver-operator</option></Select>
               </Field>
-            )}
-          </FormSection>
+            </FormSection>
+          )}
         </CardContent></Card>
         <div className="sticky bottom-0 mt-4 flex justify-end gap-2 border-t bg-background/95 py-3 backdrop-blur">
           <Button type="button" variant="outline" onClick={() => nav(-1)}>Cancel</Button>

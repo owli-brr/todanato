@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/form';
 import { Avatar, Card, PageHeader, StatusBadge, EmptyState } from '@/components/ui/misc';
 import { DataTable, Pagination, type Column } from '@/components/ui/table';
-import { AssociationSelect, ExpiryBadge, SearchBox, Toolbar } from '@/components/shared';
+import { ExpiryBadge, SearchBox, Toolbar } from '@/components/shared';
 
 export interface DriverRow {
   id: string; driverCode: string; fullName: string; photoUrl: string | null; contactNumber: string; licenseNumber: string; licenseExpiry: string;
@@ -21,7 +21,7 @@ export interface DriverRow {
 }
 
 export default function DriversList() {
-  const { can, user } = useAuth();
+  const { can } = useAuth();
   const nav = useNavigate();
   const lp = useListParams({ sort: 'name', dir: 'asc' });
   const [q, setQ] = useState(lp.get('q'));
@@ -35,7 +35,7 @@ export default function DriversList() {
     placeholderData: (p) => p,
   });
   const [exporting, setExporting] = useState(false);
-  const filtersOn = ['status', 'application', 'associationId', 'licenseExpiring', 'q'].some((k) => lp.get(k));
+  const filtersOn = ['status', 'application', 'licenseExpiring', 'q'].some((k) => lp.get(k));
 
   const columns: Column<DriverRow>[] = [
     {
@@ -50,7 +50,6 @@ export default function DriversList() {
         </div>
       ),
     },
-    { key: 'association', header: 'Association', sortable: true, hideBelow: 'lg', cell: (d) => d.association?.acronym ?? d.association?.name ?? <span className="text-muted-foreground">Unassigned</span> },
     { key: 'contact', header: 'Contact', hideBelow: 'md', cell: (d) => <span className="tabular">{d.contactNumber}</span> },
     { key: 'vehicle', header: 'Tricycle', hideBelow: 'md', cell: (d) => d.vehicle ? <Link onClick={(e) => e.stopPropagation()} to={`/vehicles/${d.vehicle.id}`} className="text-primary hover:underline">{d.vehicle.plateNumber}</Link> : <span className="text-muted-foreground">—</span> },
     { key: 'licenseExpiry', header: 'License expiry', sortable: true, hideBelow: 'lg', cell: (d) => <ExpiryBadge date={d.licenseExpiry} /> },
@@ -61,7 +60,7 @@ export default function DriversList() {
     <div>
       <PageHeader
         title="Drivers"
-        description={user?.association ? `Drivers of ${user.association.name}` : 'All registered tricycle drivers'}
+        description="All registered tricycle drivers"
         actions={
           <>
             {can('drivers.export') && (
@@ -88,13 +87,12 @@ export default function DriversList() {
               <option value="">All applications</option>
               <option value="PENDING">Pending approval</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option>
             </Select>
-            {user?.role.scope !== 'ASSOCIATION' && <div className="col-span-2 sm:w-56"><AssociationSelect value={lp.get('associationId')} onChange={(v) => lp.set({ associationId: v })} /></div>}
             <label className="col-span-2 flex items-center gap-2 text-sm sm:col-span-1">
               <input type="checkbox" className="size-4 accent-[hsl(var(--primary))]" checked={lp.get('licenseExpiring') === 'true'} onChange={(e) => lp.set({ licenseExpiring: e.target.checked ? 'true' : undefined })} />
               License expiring ≤30 days
             </label>
           </div>
-          {filtersOn && <Button variant="ghost" size="sm" onClick={() => { setQ(''); lp.set({ status: undefined, application: undefined, associationId: undefined, licenseExpiring: undefined, q: undefined }); }}><X /> Clear</Button>}
+          {filtersOn && <Button variant="ghost" size="sm" onClick={() => { setQ(''); lp.set({ status: undefined, application: undefined, licenseExpiring: undefined, q: undefined }); }}><X /> Clear</Button>}
         </Toolbar>
         <DataTable
           columns={columns}

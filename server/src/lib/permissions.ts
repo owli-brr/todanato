@@ -11,11 +11,9 @@ export const PERMISSIONS = {
   'roles.manage': ['Users', 'Edit role permissions'],
   'sessions.manage': ['Users', 'View and revoke sessions of other users'],
   // Associations
-  'associations.read': ['Associations', 'View associations'],
-  'associations.create': ['Associations', 'Register associations'],
-  'associations.update': ['Associations', 'Edit association information'],
-  'associations.delete': ['Associations', 'Archive associations'],
-  'associations.officers': ['Associations', 'Assign association officers'],
+  'associations.read': ['TODA profile', 'View the TODA profile and members'],
+  'associations.update': ['TODA profile', 'Edit TODA information'],
+  'associations.officers': ['TODA profile', 'Assign TODA officers'],
   'memberships.read': ['Associations', 'View memberships'],
   'memberships.manage': ['Associations', 'Approve, suspend and end memberships'],
   // Drivers
@@ -69,24 +67,17 @@ export const ROLES: {
   {
     key: 'SUPER_ADMIN',
     name: 'Super Administrator',
-    description: 'Full access to every organization and association.',
+    description: 'Full access, including roles and permissions.',
     scope: 'GLOBAL',
     permissions: ALL,
   },
   {
-    key: 'ORG_ADMIN',
-    name: 'Organization Administrator',
-    description: 'Manages all associations, drivers and vehicles in the organization.',
-    scope: 'ORGANIZATION',
-    permissions: ALL.filter((p) => p !== 'roles.manage'),
-  },
-  {
     key: 'ASSOC_PRESIDENT',
-    name: 'Association President',
-    description: "Runs one association: members, drivers, vehicles and officers.",
+    name: 'President',
+    description: 'Runs the TODA: members, drivers, tricycles, officers and staff accounts.',
     scope: 'ASSOCIATION',
     permissions: [
-      'dashboard.view', 'users.read',
+      'dashboard.view', 'users.read', 'users.manage', 'sessions.manage',
       'associations.read', 'associations.update', 'associations.officers',
       'memberships.read', 'memberships.manage',
       'drivers.read', 'drivers.create', 'drivers.update', 'drivers.approve', 'drivers.status', 'drivers.export', 'drivers.pii',
@@ -99,7 +90,7 @@ export const ROLES: {
   {
     key: 'SECRETARY',
     name: 'Secretary',
-    description: 'Keeps member, driver and vehicle records of one association.',
+    description: 'Keeps member, driver and tricycle records.',
     scope: 'ASSOCIATION',
     permissions: [
       'dashboard.view',
@@ -113,7 +104,7 @@ export const ROLES: {
   {
     key: 'TREASURER',
     name: 'Treasurer',
-    description: 'Records collections and expenses of one association.',
+    description: 'Records collections and expenses.',
     scope: 'ASSOCIATION',
     permissions: [
       'dashboard.view', 'associations.read', 'memberships.read',
@@ -137,7 +128,7 @@ export const ROLES: {
     key: 'AUDITOR',
     name: 'Auditor',
     description: 'Read-only access to records, finances and audit logs.',
-    scope: 'ORGANIZATION',
+    scope: 'ASSOCIATION',
     permissions: [...READ_ONLY, 'drivers.export'],
   },
 ];

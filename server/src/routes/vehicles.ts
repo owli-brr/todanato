@@ -7,6 +7,7 @@ import { audit, diff } from '../lib/audit';
 import { assertAssociationAccess, assocScope, requirePermission } from '../middleware/auth';
 import { nextVehicleCode } from '../lib/codes';
 import { removeStored, storeUpload, upload } from '../lib/uploads';
+import { todaId } from '../lib/toda';
 import { driverFullName } from './drivers';
 
 export const vehiclesRouter = Router();
@@ -16,7 +17,6 @@ const vehicleBody = z.object({
   franchiseNumber: optStr(40),
   franchiseExpiry: optDate,
   bodyNumber: optStr(20),
-  associationId: z.string().uuid().optional().nullable(),
   ownerName: z.string().trim().min(2, "Enter the owner's name").max(120),
   ownerContact: optStr(20),
   ownerAddress: optStr(250),
@@ -93,7 +93,7 @@ vehiclesRouter.post(
   ah(async (req, res) => {
     const body = vehicleBody.extend({ driverId: z.string().uuid().optional().nullable() }).parse(req.body);
     const { driverId, ...data } = body;
-    const associationId = req.auth!.scope === 'ASSOCIATION' ? req.auth!.associationId : data.associationId ?? null;
+    const associationId = req.auth!.scope === 'ASSOCIATION' ? req.auth!.associationId : await todaId();
     await assertAssociationAccess(req, associationId);
     const v = await prisma.$transaction(async (tx) => {
       const created = await tx.vehicle.create({ data: { ...data, associationId, vehicleCode: await nextVehicleCode() } });
@@ -144,17 +144,7 @@ vehiclesRouter.patch(
   ah(async (req, res) => {
     const before = await loadScoped(req, req.params.id);
     const body = vehicleBody.partial().parse(req.body);
-    if (body.associationId !== undefined && body.associationId !== before.associationId) {
-      if (req.auth!.scope === 'ASSOCIATION') throw new HttpError(403, 'Only organization administrators can move tricycles between associations');
-      await assertAssociationAccess(req, body.associationId);
-    }
-    const after = await prisma.$transaction(async (tx) => {
-      const u = await tx.vehicle.update({ where: { id: before.id }, data: body });
-      if (body.associationId !== undefined && body.associationId !== before.associationId) {
-        await tx.vehicleAssignment.updateMany({ where: { vehicleId: u.id, unassignedAt: null }, data: { unassignedAt: new Date(), remarks: 'Moved to another association' } });
-      }
-      return u;
-    });
+    const after = await prisma.vehicle.update({ where: { id: before.id }, data: body });
     const d = diff(before, after);
     await audit(req, { action: 'UPDATE', entity: 'Vehicle', entityId: after.id, summary: `Updated ${after.plateNumber} (${d.changed.join(', ') || 'no changes'})`, before: d.before, after: d.after, associationId: after.associationId });
     res.json(after);

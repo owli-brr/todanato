@@ -40,7 +40,7 @@ function AssignDialog({ v, open, onOpenChange, onDone }: { v: Vehicle; open: boo
     enabled: open,
   });
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={v.currentDriver ? 'Reassign driver' : 'Assign driver'} description={`Only active drivers of ${v.association?.name ?? 'this association'} are listed. A driver already on another tricycle is moved here.`}
+    <Dialog open={open} onOpenChange={onOpenChange} title={v.currentDriver ? 'Reassign driver' : 'Assign driver'} description={`Only active drivers of ${v.association?.name ?? 'the TODA'} are listed. A driver already on another tricycle is moved here.`}
       footer={<><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!driverId} loading={busy} onClick={async () => {
         setBusy(true);
         try { await api.post(`/vehicles/${v.id}/assign`, { driverId }); toast.success('Driver assigned'); onOpenChange(false); onDone(); }
@@ -126,7 +126,7 @@ export default function VehicleProfile() {
       <PageHeader
         back="/vehicles"
         title={<span className="flex flex-wrap items-center gap-2">{v.plateNumber} <StatusBadge status={v.status} /></span>}
-        description={`${v.vehicleCode} · ${v.make} ${v.model}${v.year ? ` (${v.year})` : ''} · ${v.color}${v.association ? ` · ${v.association.name}` : ''}`}
+        description={`${v.vehicleCode} · ${v.make} ${v.model}${v.year ? ` (${v.year})` : ''} · ${v.color}`}
         actions={
           <>
             {can('maintenance.manage') && <Button variant="outline" onClick={() => setMaintOpen(true)}><Wrench /> Record maintenance</Button>}

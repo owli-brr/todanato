@@ -5,6 +5,7 @@ import {
   FileText, Menu as MenuIcon, X, Moon, Sun, LogOut, KeyRound, UserCog, ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useToda } from '@/components/shared';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Avatar } from './ui/misc';
@@ -19,7 +20,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { to: '/drivers', label: 'Drivers', icon: Users, perm: 'drivers.read' },
       { to: '/vehicles', label: 'Tricycles', icon: Bike, perm: 'vehicles.read' },
-      { to: '/associations', label: 'Associations', icon: Building2, perm: 'associations.read' },
+      { to: '/toda', label: 'TODA profile', icon: Building2, perm: 'associations.read' },
     ],
   },
   {
@@ -52,15 +53,21 @@ function useTheme() {
   return { dark, toggle: () => setDark((d) => !d) };
 }
 
+function HeaderToda() {
+  const { data } = useToda();
+  return data ? <div className="truncate text-sm font-medium">{data.name}</div> : null;
+}
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { can, user } = useAuth();
+  const { data: toda } = useToda();
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <Link to="/" onClick={onNavigate} className="flex h-16 items-center gap-2.5 px-5">
         <img src="/favicon.svg" alt="" className="size-8" />
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-wide">TOMS</div>
-          <div className="text-[11px] text-sidebar-muted">Tricycle Organization Mgmt</div>
+          <div className="text-sm font-semibold tracking-wide">TODAnaTo</div>
+          <div className="text-[11px] text-sidebar-muted">TODA management</div>
         </div>
       </Link>
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
@@ -100,8 +107,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
       <div className="border-t border-white/10 p-4 text-xs text-sidebar-muted">
-        <div className="truncate font-medium text-sidebar-foreground">{user?.organization?.name ?? 'All organizations'}</div>
-        <div className="truncate">{user?.association ? user.association.name : user?.role.scope === 'GLOBAL' ? 'System-wide access' : 'All associations'}</div>
+        <div className="truncate font-medium text-sidebar-foreground">{toda?.name ?? 'TODAnaTo'}</div>
+        <div className="truncate">{user?.role.name}</div>
       </div>
     </div>
   );
@@ -131,7 +138,7 @@ export function Layout() {
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><MenuIcon /></Button>
           <div className="min-w-0 flex-1">
-            {user?.association && <div className="truncate text-sm font-medium">{user.association.name}</div>}
+            <HeaderToda />
           </div>
           <Button variant="ghost" size="icon" onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}>{dark ? <Sun /> : <Moon />}</Button>
           <Menu>

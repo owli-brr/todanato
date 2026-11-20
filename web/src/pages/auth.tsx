@@ -14,20 +14,20 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle?: Re
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="size-10" />
           <div>
-            <div className="text-lg font-semibold">TOMS</div>
-            <div className="text-sm text-sidebar-muted">Tricycle Organization Management System</div>
+            <div className="text-lg font-semibold">TODAnaTo</div>
+            <div className="text-sm text-sidebar-muted">Tricycle Operators and Drivers Association management</div>
           </div>
         </div>
         <div className="mt-auto max-w-md space-y-4">
-          <p className="text-2xl font-semibold leading-snug text-white">One place for your TODA's drivers, tricycles, dues and daily operations.</p>
-          <p className="text-sm text-sidebar-muted">Records stay with each association. Every change is logged. Personal information is handled under the Data Privacy Act of 2012 (RA 10173).</p>
+          <p className="text-2xl font-semibold leading-snug text-white">One place for our TODA's drivers, tricycles, dues and daily operations.</p>
+          <p className="text-sm text-sidebar-muted">Every change is logged. Personal information is handled under the Data Privacy Act of 2012 (RA 10173).</p>
         </div>
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2 lg:hidden">
             <img src="/favicon.svg" alt="" className="size-8" />
-            <span className="font-semibold">TOMS</span>
+            <span className="font-semibold">TODAnaTo</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
@@ -74,7 +74,7 @@ export function LoginPage() {
   };
 
   return (
-    <AuthShell title="Sign in" subtitle="Use the account given by your organization administrator.">
+    <AuthShell title="Sign in" subtitle="Use the account given by your TODA administrator.">
       <form onSubmit={submit} className="space-y-4" noValidate>
         {error && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
         <Field label="Email" name="email">
@@ -89,7 +89,7 @@ export function LoginPage() {
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
       <div className="mt-8 rounded-md border bg-muted/40 p-4 text-sm">
-        <div className="font-medium">Want to drive for a TODA?</div>
+        <div className="font-medium">Want to drive for our TODA?</div>
         <div className="mt-1 text-muted-foreground">
           <Link to="/apply" className="font-medium text-primary hover:underline">Apply as a driver</Link>
           {' · '}
@@ -102,14 +102,13 @@ export function LoginPage() {
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
             {[
               ['superadmin', 'Super Administrator'],
-              ['admin', 'Organization Admin'],
-              ['president.srtoda', 'Association President'],
-              ['secretary.srtoda', 'Secretary'],
-              ['treasurer.srtoda', 'Treasurer'],
-              ['dispatcher.srtoda', 'Dispatcher'],
+              ['president', 'President'],
+              ['secretary', 'Secretary'],
+              ['treasurer', 'Treasurer'],
+              ['dispatcher', 'Dispatcher'],
               ['auditor', 'Auditor (read-only)'],
             ].map(([u, label]) => (
-              <button key={u} type="button" className="text-left underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setEmail(`${u}@toms.ph`); setPassword('Toda2026demo'); }}>{label}</button>
+              <button key={u} type="button" className="text-left underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setEmail(`${u}@todanato.ph`); setPassword('Toda2026demo'); }}>{label}</button>
             ))}
           </div>
           <div className="mt-2">Click a role to fill in its login. All data is fictional.</div>

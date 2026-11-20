@@ -1,6 +1,6 @@
-# TOMS — Tricycle Organization Management System
+# TODAnaTo
 
-A web platform for running a federation of tricycle operators and drivers associations (TODAs) in the Philippines: drivers, tricycles, associations, dues, daily operations and (later) ride-hailing through a mobile app that shares the same backend.
+A purpose-built web platform for running **one** tricycle operators and drivers association (TODA) in the Philippines: drivers, tricycles, members and officers, dues, daily operations and (later) ride-hailing through a mobile app that shares the same backend.
 
 This is the rewrite of the original TODAnaTo PHP app. The old PHP code is kept on the `legacy-php` branch.
 
@@ -8,7 +8,7 @@ This is the rewrite of the original TODAnaTo PHP app. The old PHP code is kept o
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1** | Auth, roles & permissions, dashboard, drivers, tricycles, associations | **Done** |
+| **1** | Auth, roles & permissions, dashboard, drivers, tricycles, TODA profile, online driver applications | **Done** |
 | 2 | Finance & collections, reports, document centre, announcements, incidents | Database ready, screens next |
 | 3 | Dispatch, live GPS map, rides, mobile app API, push notifications | Database ready |
 | 4 | Advanced analytics, automated reminders, more integrations | — |
@@ -18,14 +18,14 @@ The database schema already covers every module in the spec (payments, dues, boo
 ### What works now
 
 - **Sign-in & accounts**: login/logout, forgot/reset password, forced password change for new accounts, change password, active-session list and sign-out, login history, account lockout after 5 failed attempts, rotating refresh tokens in an httpOnly cookie, 15-minute access tokens.
-- **7 roles with editable permissions**: Super Administrator, Organization Administrator, Association President, Secretary, Treasurer, Dispatcher, Auditor. Super Admins tick/untick permissions per role in *Users & roles → Roles & permissions*. Users can't grant a role at or above their own.
-- **Per-association data isolation**: President, Secretary, Treasurer and Dispatcher only ever see their own association; this is enforced in every API query, not just hidden in the UI (see `server/src/middleware/auth.ts`). Org Admin and Auditor see their whole organization; Super Admin sees everything.
-- **Dashboard**: drivers by status, pending applications, tricycles, associations, rides today (pending/ongoing/completed/cancelled), collections today, monthly income, outstanding dues, daily/weekly/monthly ride and finance charts (with a table view), pending approvals, expiring licenses/registrations/insurance/franchises, live driver availability, recent transactions and activity. All from the database; money figures only appear for roles with finance access.
-- **Drivers**: register, edit, transfer between associations, approve/reject applications, activate/deactivate/suspend (with reason and end date), archive, profile photo, document upload/verify/reject, CSV export, search/filter/sort/paginate, profile tabs for personal info, documents, tricycle, membership, payments, rides and activity history.
+- **6 roles with editable permissions**: Super Administrator, President, Secretary, Treasurer, Dispatcher, Auditor. Super Admins tick/untick permissions per role in *Users & roles → Roles & permissions*. The President manages staff accounts; nobody can grant a role at or above their own.
+- **One TODA**: everything belongs to the single TODA (its profile is under *TODA profile*). There is no screen or endpoint to add or remove associations; the `Association` table holds one row (`server/src/lib/toda.ts`), which keeps records scoped so later phases (finance, dispatch) fit without changes.
+- **Dashboard**: drivers by status, pending applications, tricycles, active members, rides today (pending/ongoing/completed/cancelled), collections today, monthly income, outstanding dues, daily/weekly/monthly ride and finance charts (with a table view), pending approvals, expiring licenses/registrations/insurance/franchises, live driver availability, recent transactions and activity. All from the database; money figures only appear for roles with finance access.
+- **Drivers**: register, edit, approve/reject applications, activate/deactivate/suspend (with reason and end date), archive, profile photo, document upload/verify/reject, CSV export, search/filter/sort/paginate, profile tabs for personal info, documents, tricycle, membership, payments, rides and activity history.
 - **Tricycles**: register, edit, assign/reassign/unassign drivers (one driver per tricycle, history kept), operational / under maintenance / inactive, maintenance & repair log with costs, documents (OR/CR, MTOP, CTPL…), expiry tracking, full change history.
-- **Associations**: register, edit, archive, officers with terms, membership list with status changes, per-association stats and fees.
+- **TODA profile**: name, accreditation, terminal, contact details and fees, officers with terms, membership list with status changes.
 - **Audit log**: every sign-in, create, update (with before/after of the changed fields), approval, suspension, upload, verification, assignment and export.
-- **Data privacy (RA 10173)**: birth date, address, emergency contact and email are masked for roles without `drivers.pii`; files are never public and are streamed only after a permission + association check; uploads are type- and magic-byte-checked; exports are logged.
+- **Data privacy (RA 10173)**: birth date, address, emergency contact and email are masked for roles without `drivers.pii`; files are never public and are streamed only after a permission check; uploads are type- and magic-byte-checked; exports are logged.
 - Light/dark mode, responsive down to phone width, loading/empty/error states, toasts, confirmation dialogs on sensitive actions.
 - OpenAPI docs at `/api/docs`.
 
@@ -47,24 +47,22 @@ Open http://localhost:5173. Demo accounts (password `Toda2026demo`; the login pa
 
 | Email | Role | Sees |
 |---|---|---|
-| superadmin@toms.ph | Super Administrator | everything |
-| admin@toms.ph | Organization Administrator | all 6 associations |
-| auditor@toms.ph | Auditor | read-only, whole organization |
-| president.srtoda@toms.ph | Association President | San Roque TODA only |
-| secretary.srtoda@toms.ph | Secretary | San Roque TODA only |
-| treasurer.srtoda@toms.ph | Treasurer | San Roque TODA only |
-| dispatcher.srtoda@toms.ph | Dispatcher | San Roque TODA only, no personal details |
-| president.mjtoda@toms.ph | Association President | Mayamot Junction TODA only |
+| superadmin@todanato.ph | Super Administrator | everything, including roles & permissions |
+| president@todanato.ph | President | runs the TODA, manages staff accounts |
+| secretary@todanato.ph | Secretary | member, driver and tricycle records |
+| treasurer@todanato.ph | Treasurer | collections and expenses |
+| dispatcher@todanato.ph | Dispatcher | drivers on the road, no personal details |
+| auditor@todanato.ph | Auditor | read-only |
 
-`npm run db:seed` (in `server/`) wipes and reloads the sample data: 6 Antipolo City TODAs, 136 drivers, 112 tricycles, ~3,500 rides over 90 days, ~2,800 payments and 6 months of dues and expenses. All names and numbers are fictional.
+`npm run db:seed` (in `server/`) wipes and reloads the sample data: one TODA (San Roque TODA, Antipolo City — rename it under *TODA profile*), 96 drivers, 81 tricycles, ~3,600 rides over 90 days, ~1,900 payments and 6 months of dues and expenses. All names and numbers are fictional. On Vercel the sample data reloads automatically when `SEED_VERSION` in `server/prisma/seed.ts` changes (unless `DEMO_MODE=false`).
 
 ### Driver applicants
 
-Anyone can apply to a TODA at `/apply` without an account and check the result at `/application-status` using their reference number and license number. Applications arrive as pending drivers (with the uploaded license, if any) that the association's officers approve or reject under **Drivers → Pending applications**. The public endpoints are under `/api/public` and are rate-limited.
+Anyone can apply to join the TODA at `/apply` without an account and check the result at `/application-status` using their reference number and license number. Applications arrive as pending drivers (with the uploaded license, if any) that the TODA's officers approve or reject under **Drivers → Pending applications**. The public endpoints are under `/api/public` and are rate-limited.
 
 ### Tests
 
-With the API running on seeded data: `npm test`. The suite covers sign-in, association isolation, permission checks, PII masking, the full driver lifecycle (register → approve → upload/verify document → assign tricycle → suspend), privilege-escalation attempts, and audit logging.
+With the API running on seeded data: `npm test`. The suite covers sign-in, the single-TODA rules, permission checks, PII masking, the full driver lifecycle (register → approve → upload/verify document → assign tricycle → suspend), privilege-escalation attempts, online driver applications, and audit logging.
 
 ### Production build
 
@@ -81,7 +79,7 @@ The API serves the built web app from `web/dist`, so one Node process and one Po
 1. In the Vercel project, open **Storage → Create Database → Neon (Postgres)** and connect it to the project. This sets `DATABASE_URL`.
 2. Redeploy. The first deploy creates the tables and the demo data in their own Postgres schema, `toms` (set `DB_SCHEMA` to change it), so a database that already holds other tables is left alone.
 
-On Vercel the app runs in **demo mode**: the shared `@toms.ph` accounts can't be locked out, deactivated or have their password changed, and role permissions are read-only. Set `DEMO_MODE=false` to turn this off. The sign-in page lists the demo accounts only if `SHOW_DEMO_LOGINS=true` is set. `JWT_SECRET` is optional there (one is derived from the database URL); set it to rotate sign-ins.
+On Vercel the app runs in **demo mode**: the shared `@todanato.ph` accounts can't be locked out, deactivated or have their password changed, and role permissions are read-only. Set `DEMO_MODE=false` to turn this off. The sign-in page lists the demo accounts only if `SHOW_DEMO_LOGINS=true` is set. `JWT_SECRET` is optional there (one is derived from the database URL); set it to rotate sign-ins.
 
 ## Layout
 
