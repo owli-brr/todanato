@@ -113,6 +113,11 @@ driverPortalRouter.get('/me', requireDriver, ah(async (req, res) => {
     },
   });
   const v = d.vehicleAssignments[0]?.vehicle ?? null;
+  const [openDues, payments] = await Promise.all([
+    prisma.dueCharge.findMany({ where: { driverId: d.id, status: { in: ['UNPAID', 'PARTIAL', 'OVERDUE'] } }, orderBy: { dueDate: 'asc' }, select: { id: true, type: true, periodStart: true, amount: true, amountPaid: true, dueDate: true } }),
+    prisma.payment.findMany({ where: { driverId: d.id, status: 'POSTED' }, orderBy: { paidAt: 'desc' }, take: 10, select: { id: true, receiptNo: true, type: true, method: true, amount: true, paidAt: true } }),
+  ]);
+  const balance = openDues.reduce((s, x) => s + Number(x.amount) - Number(x.amountPaid), 0);
   const in30 = Date.now() + 30 * 86400000;
   const reminders: { level: 'warning' | 'danger'; text: string }[] = [];
   const check = (label: string, date: Date | null | undefined) => {
@@ -121,6 +126,8 @@ driverPortalRouter.get('/me', requireDriver, ah(async (req, res) => {
     else if (date.getTime() < in30) reminders.push({ level: 'warning', text: `${label} expires on ${date.toLocaleDateString('en-PH', { dateStyle: 'medium', timeZone: 'Asia/Manila' })}` });
   };
   check('Your driver’s license', d.licenseExpiry);
+  const overdue = openDues.filter((x) => x.dueDate.getTime() < Date.now());
+  if (overdue.length) reminders.push({ level: 'danger', text: `You have ${overdue.length} overdue charge${overdue.length === 1 ? '' : 's'} totalling ₱${overdue.reduce((s, x) => s + Number(x.amount) - Number(x.amountPaid), 0).toLocaleString('en-PH')}. Please settle at the TODA office.` });
   if (v) { check(`Registration of ${v.plateNumber}`, v.registrationExpiry); check(`Franchise (MTOP) of ${v.plateNumber}`, v.franchiseExpiry); check(`Insurance of ${v.plateNumber}`, v.insuranceExpiry); }
   for (const doc of d.documents) if (doc.status !== 'REJECTED' && doc.type !== 'DRIVERS_LICENSE') check(`Your ${doc.type.replace(/_/g, ' ').toLowerCase()}`, doc.expiresAt);
   for (const doc of d.documents) if (doc.status === 'REJECTED') reminders.push({ level: 'danger', text: `Your ${doc.type.replace(/_/g, ' ').toLowerCase()} was rejected${doc.remarks ? `: ${doc.remarks}` : ''}. Bring a new copy to the TODA office.` });
@@ -138,6 +145,7 @@ driverPortalRouter.get('/me', requireDriver, ah(async (req, res) => {
     vehicle: v,
     documents: d.documents,
     reminders,
+    finance: { balance: Math.round(balance * 100) / 100, openDues: openDues.map((x) => ({ ...x, balance: Number(x.amount) - Number(x.amountPaid), overdue: x.dueDate.getTime() < Date.now() })), payments },
   });
 }));
 

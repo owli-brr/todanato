@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, Bike, FileText, IdCard, LogOut, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Bike, FileText, IdCard, LogOut, ShieldAlert, Wallet } from 'lucide-react';
 import { fmtDate, label, peso } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
@@ -114,6 +114,52 @@ interface Me {
   vehicle: { plateNumber: string; bodyNumber: string | null; make: string; model: string; color: string; status: string; registrationExpiry: string | null; franchiseExpiry: string | null; insuranceExpiry: string | null } | null;
   documents: { id: string; type: string; documentNo: string | null; fileName: string; expiresAt: string | null; status: string; remarks: string | null; uploadedAt: string }[];
   reminders: { level: 'warning' | 'danger'; text: string }[];
+  finance: {
+    balance: number;
+    openDues: { id: string; type: string; periodStart: string; amount: string; balance: number; dueDate: string; overdue: boolean }[];
+    payments: { id: string; receiptNo: string; type: string; method: string; amount: string; paidAt: string }[];
+  };
+}
+
+const monthOf = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+function MyDues({ f }: { f: Me['finance'] }) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle className="flex items-center gap-2"><Wallet className="size-4" />My dues and payments</CardTitle>
+        <div className="text-right"><div className="text-xs text-muted-foreground">Balance</div><div className={`text-lg font-semibold tabular ${f.balance > 0 ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}`}>{peso(f.balance, 2)}</div></div>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-2">
+        <div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Unpaid</div>
+          {f.openDues.length === 0 ? <p className="text-sm text-muted-foreground">You’re all paid up. Salamat!</p> : (
+            <ul className="divide-y text-sm">
+              {f.openDues.map((x) => (
+                <li key={x.id} className="flex items-center justify-between gap-3 py-2">
+                  <div><div className="font-medium">{x.type === 'MONTHLY_DUES' ? `Dues for ${monthOf(x.periodStart)}` : label(x.type)}</div><div className={`text-xs ${x.overdue ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'}`}>{x.overdue ? 'Overdue since' : 'Due'} {fmtDate(x.dueDate)}</div></div>
+                  <div className="tabular font-medium">{peso(x.balance, 2)}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent receipts</div>
+          {f.payments.length === 0 ? <p className="text-sm text-muted-foreground">No payments yet.</p> : (
+            <ul className="divide-y text-sm">
+              {f.payments.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                  <div><div className="font-medium">{label(p.type)}</div><div className="text-xs text-muted-foreground">{p.receiptNo} · {fmtDate(p.paidAt)} · {label(p.method)}</div></div>
+                  <div className="tabular">{peso(p.amount, 2)}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ChangePassword({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -171,6 +217,7 @@ export function DriverPortalPage() {
             ))}
           </CardContent></Card>
         )}
+        <MyDues f={me.data.finance} />
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><IdCard className="size-4" />My membership</CardTitle></CardHeader>

@@ -21,6 +21,8 @@ const DriverProfile = lazy(() => import('@/pages/drivers/profile'));
 const VehiclesList = lazy(() => import('@/pages/vehicles/list'));
 const VehicleForm = lazy(() => import('@/pages/vehicles/form'));
 const VehicleProfile = lazy(() => import('@/pages/vehicles/profile'));
+const FinancePage = lazy(() => import('@/pages/finance'));
+const PaymentReceiptPage = lazy(() => import('@/pages/finance/receipt'));
 const AssociationForm = lazy(() => import('@/pages/associations/form'));
 const AssociationProfile = lazy(() => import('@/pages/associations/profile'));
 const UsersPage = lazy(() => import('@/pages/users'));
@@ -89,6 +91,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="drivers/:id" element={<Guard perm="drivers.read"><DriverProfile /></Guard>} />
               <Route path="drivers/:id/edit" element={<Guard perm="drivers.update"><DriverForm /></Guard>} />
               <Route path="vehicles" element={<Guard perm="vehicles.read"><VehiclesList /></Guard>} />
+              <Route path="finance" element={<Guard perm="finance.read"><FinancePage /></Guard>} />
+              <Route path="finance/payments/:id" element={<Guard perm="finance.read"><PaymentReceiptPage /></Guard>} />
               <Route path="vehicles/new" element={<Guard perm="vehicles.create"><VehicleForm /></Guard>} />
               <Route path="vehicles/:id" element={<Guard perm="vehicles.read"><VehicleProfile /></Guard>} />
               <Route path="vehicles/:id/edit" element={<Guard perm="vehicles.update"><VehicleForm /></Guard>} />

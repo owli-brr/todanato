@@ -14,6 +14,7 @@ import { usersRouter, rolesRouter } from './routes/users';
 import { associationsRouter } from './routes/associations';
 import { driversRouter } from './routes/drivers';
 import { vehiclesRouter } from './routes/vehicles';
+import { financeRouter } from './routes/finance';
 import { dashboardRouter } from './routes/dashboard';
 import { auditRouter, filesRouter, orgRouter } from './routes/misc';
 import { authenticate } from './middleware/auth';
@@ -46,6 +47,7 @@ export function createApp() {
   app.use('/api/associations', associationsRouter);
   app.use('/api/drivers', driversRouter);
   app.use('/api/vehicles', vehiclesRouter);
+  app.use('/api/finance', financeRouter);
   app.use('/api/audit-logs', auditRouter);
   app.use('/api/organizations', orgRouter);
   app.use('/api/files', filesRouter);
