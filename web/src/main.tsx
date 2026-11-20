@@ -9,6 +9,7 @@ import { ApiError } from '@/lib/api';
 import { Layout } from '@/components/Layout';
 import { Spinner, EmptyState } from '@/components/ui/misc';
 import { ForcedPasswordChange, ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/pages/auth';
+import { ApplicationStatusPage, ApplyPage } from '@/pages/apply';
 import { ShieldOff } from 'lucide-react';
 
 const Dashboard = lazy(() => import('@/pages/dashboard'));
@@ -65,6 +66,8 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
+            <Route path="/apply" element={<ApplyPage />} />
+            <Route path="/application-status" element={<ApplicationStatusPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<RequireAuth><Layout /></RequireAuth>}>

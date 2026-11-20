@@ -8,6 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import swaggerUi from 'swagger-ui-express';
 import { authRouter } from './routes/auth';
+import { publicRouter } from './routes/public';
 import { usersRouter, rolesRouter } from './routes/users';
 import { associationsRouter } from './routes/associations';
 import { driversRouter } from './routes/drivers';
@@ -34,6 +35,7 @@ export function createApp() {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapi, { customSiteTitle: 'TOMS API' }));
 
   app.use('/api/auth', authRouter);
+  app.use('/api/public', publicRouter);
   // Everything below requires a signed-in admin user.
   app.use('/api', authenticate);
   app.use('/api/dashboard', dashboardRouter);
