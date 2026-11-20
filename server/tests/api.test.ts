@@ -405,3 +405,49 @@ test('announcements: drafts stay private, live ones reach the right audience, sc
   assert.equal((await call(sec, 'DELETE', `/announcements/${draft.body.id}`)).status, 200);
   await call(sec, 'POST', `/announcements/${later.body.id}/archive`, {});
 });
+
+test('incidents: log, assign, note, resolve, reopen; read-only roles see but cannot change', async () => {
+  const pres = await login('president@todanato.ph');
+  const disp = await login('dispatcher@todanato.ph');
+  const list = await call(disp, 'GET', '/incidents');
+  assert.equal(list.status, 200, 'dispatcher can read');
+  for (const s of ['OPEN', 'INVESTIGATING', 'RESOLVED', 'DISMISSED']) assert.equal(typeof list.body.counts[s], 'number');
+
+  const body = { type: 'PASSENGER_COMPLAINT', title: 'Test overcharging case', description: 'Passenger reports being charged double.', occurredAt: new Date().toISOString(), severity: 'MEDIUM', complainantName: 'Test Person', complainantPhone: '09171112233' };
+  assert.equal((await call(disp, 'POST', '/incidents', body)).status, 403);
+  assert.equal((await call(pres, 'POST', '/incidents', { ...body, occurredAt: new Date(Date.now() + 86400000).toISOString() })).status, 400, 'future date');
+  const created = await call(pres, 'POST', '/incidents', body);
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.match(created.body.caseNo, /^INC-\d{4}-\d{4}$/);
+  assert.equal(created.body.status, 'OPEN');
+  const id = created.body.id;
+
+  // Dispatcher sees the case but not the complainant's full number
+  const seen = (await call(disp, 'GET', `/incidents/${id}`)).body;
+  assert.equal(seen.complainantPhone, '••••2233');
+
+  const assignees = (await call(pres, 'GET', '/incidents/assignees')).body;
+  assert.ok(assignees.length > 0);
+  const assigned = await call(pres, 'PATCH', `/incidents/${id}`, { assignedToId: assignees[0].id });
+  assert.equal(assigned.body.status, 'INVESTIGATING', 'assigning starts the investigation');
+  const dispUser = (await call(disp, 'GET', '/auth/me')).body;
+  if (dispUser?.id) assert.equal((await call(pres, 'PATCH', `/incidents/${id}`, { assignedToId: dispUser.id })).status, 400, 'cannot assign to someone without incidents.manage');
+
+  assert.equal((await call(pres, 'POST', `/incidents/${id}/notes`, { body: 'Called the passenger back.' })).body.notes.length, 1);
+  assert.equal((await call(pres, 'POST', `/incidents/${id}/resolve`, { outcome: 'RESOLVED', resolution: 'short' })).status, 400);
+  const res = await call(pres, 'POST', `/incidents/${id}/resolve`, { outcome: 'RESOLVED', resolution: 'Driver refunded the excess fare in the office.', disciplinaryAction: 'Written warning' });
+  assert.equal(res.body.status, 'RESOLVED');
+  assert.ok(res.body.resolvedAt);
+  assert.equal((await call(pres, 'PATCH', `/incidents/${id}`, { severity: 'HIGH' })).status, 409, 'closed cases are locked');
+  assert.equal((await call(pres, 'POST', `/incidents/${id}/resolve`, { outcome: 'DISMISSED', resolution: 'Trying to close twice' })).status, 409);
+
+  const re = await call(pres, 'POST', `/incidents/${id}/reopen`, { reason: 'Passenger came back' });
+  assert.equal(re.body.status, 'INVESTIGATING');
+  assert.match(re.body.notes.at(-1).body, /^Reopened: /);
+  await call(pres, 'POST', `/incidents/${id}/resolve`, { outcome: 'DISMISSED', resolution: 'Duplicate test case, closing.' });
+
+  // Attachments
+  const fd = new FormData();
+  fd.append('file', new Blob(['%PDF-1.4 statement'], { type: 'application/pdf' }), 'statement.pdf');
+  assert.equal((await call(pres, 'POST', `/incidents/${id}/attachments`, fd)).status, 201, 'closed cases can still receive files');
+});

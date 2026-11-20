@@ -82,6 +82,10 @@ The **Documents** page brings together the driver and tricycle documents that ne
 
 On the **Announcements** page, the President and Secretary post notices to drivers, to officers and staff, or to everyone. A notice can be saved as a draft, posted now, or scheduled, and can take itself down at a set time. Urgent and important notices are highlighted and shown first. Drivers see their notices in the driver portal, and staff see theirs on the dashboard. A published notice is never deleted, only taken down, so there's always a record of it.
 
+### Incidents
+
+**Incidents** tracks complaints, accidents, violations and lost items from report to resolution. Each case gets a number (`INC-YYYY-NNNN`). The President assigns a handler, adds follow-up notes and attaches photos or blotter copies. A case is closed as resolved (with any action taken against the driver) or dismissed, and can be reopened with a reason. Roles that can only read cases (Secretary, Dispatcher) see them without the complainant's full phone number.
+
 ### Driver portal
 
 Once approved, a driver sets up their own sign-in at `/driver/activate` (application reference, license number, and the mobile number on file) and then signs in at `/driver/login` with their mobile number. The portal shows their status, membership and dues, assigned tricycle, documents, and reminders for anything expiring within 30 days. Staff can see whether a driver has set up the portal on the driver's profile and can reset it. Demo driver: `09170000001` / `Toda2026demo` (its password can't be changed in demo mode).

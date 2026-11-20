@@ -18,6 +18,7 @@ import { financeRouter } from './routes/finance';
 import { reportsRouter } from './routes/reports';
 import { documentsRouter } from './routes/documents';
 import { announcementsRouter } from './routes/announcements';
+import { incidentsRouter } from './routes/incidents';
 import { dashboardRouter } from './routes/dashboard';
 import { auditRouter, filesRouter, orgRouter } from './routes/misc';
 import { authenticate } from './middleware/auth';
@@ -54,6 +55,7 @@ export function createApp() {
   app.use('/api/reports', reportsRouter);
   app.use('/api/documents', documentsRouter);
   app.use('/api/announcements', announcementsRouter);
+  app.use('/api/incidents', incidentsRouter);
   app.use('/api/audit-logs', auditRouter);
   app.use('/api/organizations', orgRouter);
   app.use('/api/files', filesRouter);
