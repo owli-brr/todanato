@@ -2,13 +2,14 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, Bike, FileText, IdCard, LogOut, ShieldAlert, Wallet } from 'lucide-react';
+import { AlertTriangle, Bike, FileText, IdCard, LogOut, ShieldAlert, Wallet, Megaphone } from 'lucide-react';
 import { fmtDate, label, peso } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle, DescList, Skeleton, StatusBadge } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { PublicShell } from './apply';
+import { AnnouncementItem } from './announcements';
 
 // Driver portal. Uses its own cookie (path /api/driver), separate from staff sign-in.
 
@@ -114,6 +115,7 @@ interface Me {
   vehicle: { plateNumber: string; bodyNumber: string | null; make: string; model: string; color: string; status: string; registrationExpiry: string | null; franchiseExpiry: string | null; insuranceExpiry: string | null } | null;
   documents: { id: string; type: string; documentNo: string | null; fileName: string; expiresAt: string | null; status: string; remarks: string | null; uploadedAt: string }[];
   reminders: { level: 'warning' | 'danger'; text: string }[];
+  announcements: { id: string; title: string; body: string; priority: 'NORMAL' | 'IMPORTANT' | 'EMERGENCY'; publishAt: string | null; createdAt: string }[];
   finance: {
     balance: number;
     openDues: { id: string; type: string; periodStart: string; amount: string; balance: number; dueDate: string; overdue: boolean }[];
@@ -216,6 +218,12 @@ export function DriverPortalPage() {
               <div key={i} className={`flex items-start gap-2 text-sm ${r.level === 'danger' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`}><AlertTriangle className="mt-0.5 size-4 shrink-0" />{r.text}</div>
             ))}
           </CardContent></Card>
+        )}
+        {me.data.announcements.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Megaphone className="size-4" />From the TODA</CardTitle></CardHeader>
+            <CardContent className="space-y-2">{me.data.announcements.map((a) => <AnnouncementItem key={a.id} a={a} />)}</CardContent>
+          </Card>
         )}
         <MyDues f={me.data.finance} />
         <div className="grid gap-4 md:grid-cols-2">

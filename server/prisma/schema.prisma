@@ -853,6 +853,7 @@ enum Audience {
   ASSOCIATIONS
   OFFICERS
   PASSENGERS
+  EVERYONE
 }
 
 enum AnnouncementStatus {

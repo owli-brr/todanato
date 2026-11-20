@@ -30,7 +30,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { to: '/finance', label: 'Finance', icon: Wallet, perm: 'finance.read' },
       { to: '/documents', label: 'Documents', icon: FileText, perm: 'drivers.read' },
       { to: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view' },
-      { to: '/announcements', label: 'Announcements', icon: Megaphone, perm: 'announcements.manage', phase: 2 },
+      { to: '/announcements', label: 'Announcements', icon: Megaphone, perm: 'announcements.manage' },
       { to: '/incidents', label: 'Incidents', icon: AlertOctagon, perm: 'incidents.read', phase: 2 },
     ],
   },

@@ -2,12 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Users, Bike, Building2, ClipboardCheck, Route, Wallet, TrendingUp, AlertCircle, ArrowRight, CalendarClock, Radio, Table2, BarChart3 } from 'lucide-react';
+import { Users, Bike, Building2, ClipboardCheck, Route, Wallet, TrendingUp, AlertCircle, ArrowRight, CalendarClock, Radio, Table2, BarChart3, Megaphone } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { cn, daysUntil, fmtDate, label, num, peso, relTime } from '@/lib/utils';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton, StatusBadge } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
+import { AnnouncementItem, type Announcement } from '@/pages/announcements';
 
 interface Summary {
   drivers: { total: number; active: number; inactive: number; suspended: number; pending: number; pendingApplications: number };
@@ -82,6 +83,21 @@ function SeriesTable({ data, cols }: { data: Point[]; cols: [keyof Point, string
 
 const PERIODS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']] as const;
 
+function StaffAnnouncements() {
+  const { can } = useAuth();
+  const { data } = useQuery({ queryKey: ['announcements', 'feed'], queryFn: () => api.get<Announcement[]>('/announcements/feed') });
+  if (!data?.length) return null;
+  return (
+    <Card className="mb-4">
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="flex items-center gap-2"><Megaphone className="size-4" />Announcements</CardTitle>
+        {can('announcements.manage') && <Link to="/announcements" className="text-xs text-primary hover:underline">Manage</Link>}
+      </CardHeader>
+      <CardContent className="grid gap-2 md:grid-cols-2">{data.slice(0, 4).map((a) => <AnnouncementItem key={a.id} a={a} />)}</CardContent>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { user, can } = useAuth();
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -101,6 +117,7 @@ export default function Dashboard() {
         title={`${greeting}, ${user?.fullName.split(' ')[0]}`}
         description="Here's what's happening in the TODA today."
       />
+      <StaffAnnouncements />
 
       {summary.error ? <Card><ErrorState error={summary.error} onRetry={() => summary.refetch()} /></Card> : (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
