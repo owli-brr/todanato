@@ -29,7 +29,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { to: '/dispatch', label: 'Dispatch', icon: MapPinned, perm: 'dispatch.view', phase: 3 },
       { to: '/finance', label: 'Finance', icon: Wallet, perm: 'finance.read' },
       { to: '/documents', label: 'Documents', icon: FileText, perm: 'drivers.read', phase: 2 },
-      { to: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view', phase: 2 },
+      { to: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view' },
       { to: '/announcements', label: 'Announcements', icon: Megaphone, perm: 'announcements.manage', phase: 2 },
       { to: '/incidents', label: 'Incidents', icon: AlertOctagon, perm: 'incidents.read', phase: 2 },
     ],
@@ -124,7 +124,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block"><Sidebar /></aside>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block print:!hidden"><Sidebar /></aside>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
@@ -134,8 +134,8 @@ export function Layout() {
           </aside>
         </div>
       )}
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
+      <div className="lg:pl-64 print:!pl-0">
+        <header className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><MenuIcon /></Button>
           <div className="min-w-0 flex-1">
             <HeaderToda />
